@@ -174,11 +174,17 @@ public final class NationEvents {
 
         // Guards without an active threat spread into nearby defensive posts around
         // the settlement center. The UUID-derived slot keeps assignments stable.
+        // Build the roster from a settlement-centered area, not an area centered on each guard.
+        // This gives every guard in the settlement the same ordered roster and stable asset slots.
+        NationSavedData data = NationSavedData.get(level.getServer());
+        AABB settlementArea = new AABB(
+                faction.centerX() - 48.0, current.getY() - 32.0, faction.centerZ() - 48.0,
+                faction.centerX() + 49.0, current.getY() + 33.0, faction.centerZ() + 49.0);
         java.util.List<Villager> guards = level.getEntitiesOfClass(Villager.class,
-                        guard.getBoundingBox().inflate(48.0),
+                        settlementArea,
                         candidate -> candidate.isAlive()
-                                && faction.id().equals(NationSavedData.get(level.getServer())
-                                        .findCitizen(candidate.getUUID()).map(NationFaction::id).orElse(""))
+                                && faction.id().equals(data.findCitizen(candidate.getUUID())
+                                        .map(NationFaction::id).orElse(""))
                                 && faction.jobOf(candidate.getUUID()) == NationJob.GUARD)
                 .stream()
                 .sorted(java.util.Comparator.comparing(candidate -> candidate.getUUID().toString()))
@@ -198,7 +204,6 @@ public final class NationEvents {
 
         // Completed homes and service buildings become fallback posts when no threat is active.
         // Guards are distributed over the same ordered post list to avoid crowding one structure.
-        NationSavedData data = NationSavedData.get(level.getServer());
         String dimension = level.dimension().location().toString();
         java.util.List<BlockPos> assetPosts = data.worksites().stream()
                 .filter(site -> site.factionId().equals(faction.id()) && site.dimension().equals(dimension))
