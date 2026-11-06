@@ -74,6 +74,8 @@ public final class NationEvents {
                     NationJob job = faction.jobOf(villager.getUUID());
                     if (job == NationJob.CRAFTSMAN || job == NationJob.GENERAL_WORKER) {
                         constructSmallShelter(level, villager, faction, data);
+                        constructInfrastructure(level, villager, faction, data, NationWorksite.Type.STORAGE);
+                        constructInfrastructure(level, villager, faction, data, NationWorksite.Type.WORKSHOP);
                     }
                     if (job == NationJob.FARMER && !harvestNearbyCrop(level, villager, faction, data)) plantNearbyWheat(level, villager, faction, data);
                     else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, faction, data);
@@ -128,6 +130,41 @@ public final class NationEvents {
             }
         }
         data.markBuildSiteCompleted(faction.id(), dimension, base);
+    }
+
+    /**
+     * Places a small, functional station cluster at a registered storage or workshop site.
+     * The chest is an ordinary Minecraft chest; national stockpiles are not yet linked to its inventory.
+     */
+    private static void constructInfrastructure(ServerLevel level, Villager villager, NationFaction faction,
+            NationSavedData data, NationWorksite.Type type) {
+        String dimension = level.dimension().location().toString();
+        BlockPos base = data.findInfrastructureWorksite(faction.id(), dimension, villager.blockPosition(), type).orElse(null);
+        if (base == null || data.isInfrastructureSiteCompleted(faction.id(), dimension, base, type)) return;
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                BlockPos ground = base.offset(dx, -1, dz);
+                BlockPos space = base.offset(dx, 0, dz);
+                if (!level.hasChunkAt(ground) || !level.hasChunkAt(space)
+                        || level.getBlockState(ground).isAir() || !level.getBlockState(space).isAir()) return;
+            }
+        }
+        AABB volume = new AABB(base.offset(-1, 0, -1), base.offset(2, 1, 2));
+        if (!level.getEntities(villager, volume).isEmpty()) return;
+
+        if (type == NationWorksite.Type.STORAGE) {
+            if (!data.spendWoodForConstruction(faction.id(), 8.0)) return;
+            level.setBlock(base, Blocks.CHEST.defaultBlockState(), 3);
+            level.setBlock(base.west(), Blocks.BARREL.defaultBlockState(), 3);
+            level.setBlock(base.east(), Blocks.BARREL.defaultBlockState(), 3);
+        } else if (type == NationWorksite.Type.WORKSHOP) {
+            if (!data.spendWoodForConstruction(faction.id(), 12.0)) return;
+            level.setBlock(base, Blocks.CRAFTING_TABLE.defaultBlockState(), 3);
+            level.setBlock(base.west(), Blocks.FURNACE.defaultBlockState(), 3);
+            level.setBlock(base.east(), Blocks.STONECUTTER.defaultBlockState(), 3);
+        } else return;
+        data.markInfrastructureSiteCompleted(faction.id(), dimension, base, type);
     }
 
     /** A loaded lumberjack removes one nearby tree log only inside its faction's designated lumber worksite. */
