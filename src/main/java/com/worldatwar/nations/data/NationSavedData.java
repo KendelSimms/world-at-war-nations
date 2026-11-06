@@ -195,6 +195,51 @@ public final class NationSavedData extends SavedData {
         return true;
     }
 
+    public boolean addStorageWorksite(NationFaction faction, String dimension, net.minecraft.core.BlockPos pos) {
+        return addInfrastructureWorksite(faction, dimension, pos, NationWorksite.Type.STORAGE);
+    }
+
+    public boolean addWorkshopWorksite(NationFaction faction, String dimension, net.minecraft.core.BlockPos pos) {
+        return addInfrastructureWorksite(faction, dimension, pos, NationWorksite.Type.WORKSHOP);
+    }
+
+    private boolean addInfrastructureWorksite(NationFaction faction, String dimension,
+                                               net.minecraft.core.BlockPos pos, NationWorksite.Type type) {
+        if (!faction.dimension().equals(dimension)) return false;
+        boolean exists = worksites.stream().anyMatch(site -> site.factionId().equals(faction.id())
+                && site.type() == type && site.x() == pos.getX()
+                && site.y() == pos.getY() && site.z() == pos.getZ());
+        if (exists) return false;
+        worksites.add(new NationWorksite(faction.id(), dimension, pos.getX(), pos.getY(), pos.getZ(), type));
+        setDirty();
+        return true;
+    }
+
+    public boolean removeStorageWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
+        return removeInfrastructureWorksite(factionId, dimension, pos, NationWorksite.Type.STORAGE);
+    }
+
+    public boolean removeWorkshopWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
+        return removeInfrastructureWorksite(factionId, dimension, pos, NationWorksite.Type.WORKSHOP);
+    }
+
+    private boolean removeInfrastructureWorksite(String factionId, String dimension,
+                                                  net.minecraft.core.BlockPos pos, NationWorksite.Type type) {
+        NationWorksite nearest = worksites.stream()
+                .filter(site -> site.factionId().equals(factionId)
+                        && site.type() == type && site.contains(pos, dimension))
+                .min(Comparator.comparingLong(site -> {
+                    long dx = (long) site.x() - pos.getX();
+                    long dy = (long) site.y() - pos.getY();
+                    long dz = (long) site.z() - pos.getZ();
+                    return dx * dx + dy * dy + dz * dz;
+                })).orElse(null);
+        if (nearest == null) return false;
+        worksites.remove(nearest);
+        setDirty();
+        return true;
+    }
+
     public Optional<NationFaction> findCitizen(UUID uuid) {
         return factions.values().stream().filter(faction -> faction.hasCitizen(uuid)).findFirst();
     }
