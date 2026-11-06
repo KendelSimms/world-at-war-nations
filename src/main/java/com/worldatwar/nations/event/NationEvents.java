@@ -7,6 +7,7 @@ import com.worldatwar.nations.data.NationFaction;
 import com.worldatwar.nations.data.NationJob;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
@@ -71,7 +72,7 @@ public final class NationEvents {
                     NationJob job = faction.jobOf(villager.getUUID());
                     if (job == NationJob.FARMER) harvestNearbyCrop(level, villager, faction, data);
                     else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, faction, data);
-                    else if (job == NationJob.MINER) harvestNearbyIronOre(level, villager, faction, data);
+                    else if (job == NationJob.MINER && !harvestNearbyIronOre(level, villager, faction, data)) harvestNearbyStone(level, villager, faction, data);
                 }
             }
         }
@@ -113,7 +114,7 @@ public final class NationEvents {
      * A loaded miner removes at most one exposed iron ore block per work interval,
      * and only inside a designated mining worksite. No tunneling or wall removal.
      */
-    private static void harvestNearbyIronOre(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
+    private static boolean harvestNearbyIronOre(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
         BlockPos origin = villager.blockPosition();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int dy = -2; dy <= 2; dy++) {
@@ -126,6 +127,27 @@ public final class NationEvents {
                             || !hasAdjacentAir(level, cursor)) continue;
                     if (level.destroyBlock(cursor, true)) {
                         data.recordPhysicalIronMining(villager.getUUID(), 1.0);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /** A miner may extract one exposed stone/deepslate block per interval inside a designated mine. */
+    private static void harvestNearbyStone(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
+        BlockPos origin = villager.blockPosition();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dy = -2; dy <= 2; dy++) {
+            for (int dx = -MINING_WORK_RADIUS; dx <= MINING_WORK_RADIUS; dx++) {
+                for (int dz = -MINING_WORK_RADIUS; dz <= MINING_WORK_RADIUS; dz++) {
+                    cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
+                    BlockState state = level.getBlockState(cursor);
+                    if ((state.is(Blocks.STONE) || state.is(Blocks.DEEPSLATE))
+                            && data.isMiningWorksite(faction.id(), level.dimension().location().toString(), cursor)
+                            && hasAdjacentAir(level, cursor) && level.destroyBlock(cursor, true)) {
+                        data.recordPhysicalStoneMining(villager.getUUID(), 1.0);
                         return;
                     }
                 }
