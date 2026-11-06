@@ -85,7 +85,8 @@ public final class NationEvents {
                     if (job != NationJob.GUARD && retreatCivilianFromThreat(level, villager, faction)) continue;
                     guideWorkerToWorksite(level, villager, faction, data, job);
                     if (job == NationJob.GUARD) {
-                        guideGuardToSettlement(level, villager, faction);
+                        boolean responding = respondToSettlementThreat(level, villager, faction, data);
+                        if (!responding) guideGuardToSettlement(level, villager, faction);
                         alertNearbyGolems(level, villager);
                     }
                     if (job == NationJob.SCHOLAR) studyAtWorkshop(level, villager, faction, data);
@@ -179,6 +180,48 @@ public final class NationEvents {
         if (level.hasChunkAt(patrolPoint)) {
             guard.getNavigation().moveTo(targetX + 0.5, current.getY(), targetZ + 0.5, 0.75);
         }
+    }
+
+    /**
+     * Sends a guard to investigate a hostile mob threatening a same-faction citizen or registered worksite.
+     * This is defensive positioning only: villagers still do not have a combat target/attack AI.
+     */
+    private static boolean respondToSettlementThreat(ServerLevel level, Villager guard,
+            NationFaction faction, NationSavedData data) {
+        AABB patrolArea = guard.getBoundingBox().inflate(24.0);
+        Monster threat = level.getEntitiesOfClass(Monster.class, patrolArea,
+                        candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard))
+                .stream()
+                .filter(candidate -> threatensFactionAsset(level, candidate, faction, data))
+                .min(java.util.Comparator.comparingDouble(guard::distanceToSqr))
+                .orElse(null);
+        if (threat == null) return false;
+
+        BlockPos destination = threat.blockPosition();
+        if (level.hasChunkAt(destination) && guard.distanceToSqr(threat) > 16.0) {
+            guard.getNavigation().moveTo(destination.getX() + 0.5, destination.getY(),
+                    destination.getZ() + 0.5, 0.9);
+        }
+        return true;
+    }
+
+    private static boolean threatensFactionAsset(ServerLevel level, Monster threat,
+            NationFaction faction, NationSavedData data) {
+        AABB citizenArea = threat.getBoundingBox().inflate(12.0);
+        boolean nearCitizen = level.getEntitiesOfClass(Villager.class, citizenArea,
+                        villager -> villager.isAlive()
+                                && data.findCitizen(villager.getUUID())
+                                        .map(owner -> owner.id().equals(faction.id()))
+                                        .orElse(false))
+                .size() > 0;
+        if (nearCitizen) return true;
+
+        String dimension = level.dimension().location().toString();
+        BlockPos threatPos = threat.blockPosition();
+        return data.worksites().stream()
+                .anyMatch(site -> site.factionId().equals(faction.id())
+                        && site.dimension().equals(dimension)
+                        && site.contains(threatPos, dimension));
     }
 
     /**
