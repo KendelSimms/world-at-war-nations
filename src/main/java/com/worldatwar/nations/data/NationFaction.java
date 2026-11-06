@@ -158,6 +158,12 @@ public final class NationFaction {
     }
 
     /** One abstract national planning/economy step. No world blocks are changed in this alpha. */
+    /** Adds knowledge produced by a scholar working at a physical workshop. */
+    public void recordPhysicalResearch(double amount) {
+        knowledge = clamp(knowledge + Math.max(0.0, amount), 0, MAX_STOCKPILE);
+        prosperity = clamp(prosperity + 0.02, 0, 100);
+    }
+
     /** Adds food produced by a physical worker action in the loaded world. */
     public void recordPhysicalFoodHarvest(double amount) {
         food = clamp(food + Math.max(0.0, amount), 0, MAX_STOCKPILE);
