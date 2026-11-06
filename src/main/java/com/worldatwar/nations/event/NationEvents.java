@@ -73,7 +73,7 @@ public final class NationEvents {
                 for (Entity loaded : level.getAllEntities()) {
                     if (loaded instanceof AbstractIllager illager && illager.isAlive()) {
                         NationFaction illagerFaction = data.findCitizen(illager.getUUID()).orElse(null);
-                        if (illagerFaction != null) defendIllagerAgainstMonsters(level, illager);
+                        if (illagerFaction != null) defendIllagerAgainstMonsters(level, illager, illagerFaction, data);
                         continue;
                     }
                     if (!(loaded instanceof Villager villager) || !villager.isAlive()) continue;
@@ -223,11 +223,15 @@ public final class NationEvents {
      * they may engage the nearest non-allied hostile monster within 16 blocks.
      * Existing combat targets are never overwritten.
      */
-    private static void defendIllagerAgainstMonsters(ServerLevel level, AbstractIllager illager) {
+    private static void defendIllagerAgainstMonsters(ServerLevel level, AbstractIllager illager,
+            NationFaction faction, NationSavedData data) {
         if (illager.getTarget() != null && illager.getTarget().isAlive()) return;
         AABB defenseArea = illager.getBoundingBox().inflate(16.0);
         Monster threat = level.getEntitiesOfClass(Monster.class, defenseArea,
-                        candidate -> candidate != illager && candidate.isAlive() && !candidate.isAlliedTo(illager))
+                        candidate -> candidate != illager && candidate.isAlive() && !candidate.isAlliedTo(illager)
+                                && data.findCitizen(candidate.getUUID())
+                                        .map(otherFaction -> !otherFaction.id().equals(faction.id()))
+                                        .orElse(true))
                 .stream()
                 .min(java.util.Comparator.comparingDouble(illager::distanceToSqr))
                 .orElse(null);
