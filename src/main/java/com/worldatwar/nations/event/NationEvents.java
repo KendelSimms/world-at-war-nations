@@ -17,6 +17,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.AbstractIllager;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -74,7 +76,10 @@ public final class NationEvents {
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
                     guideWorkerToWorksite(level, villager, faction, data, job);
-                    if (job == NationJob.GUARD) guideGuardToSettlement(level, villager, faction);
+                    if (job == NationJob.GUARD) {
+                        guideGuardToSettlement(level, villager, faction);
+                        alertNearbyGolems(level, villager);
+                    }
                     if (job == NationJob.SCHOLAR) studyAtWorkshop(level, villager, faction, data);
                     if (job == NationJob.CRAFTSMAN || job == NationJob.GENERAL_WORKER) {
                         constructSmallShelter(level, villager, faction, data);
@@ -165,6 +170,28 @@ public final class NationEvents {
         BlockPos patrolPoint = new BlockPos(targetX, current.getY(), targetZ);
         if (level.hasChunkAt(patrolPoint)) {
             guard.getNavigation().moveTo(targetX + 0.5, current.getY(), targetZ + 0.5, 0.75);
+        }
+    }
+
+    /**
+     * Settlement guards alert nearby iron golems when hostile mobs approach.
+     * Existing golem targets are preserved; this does not make villagers attack.
+     */
+    private static void alertNearbyGolems(ServerLevel level, Villager guard) {
+        AABB threatArea = guard.getBoundingBox().inflate(16.0);
+        Monster threat = level.getEntitiesOfClass(Monster.class, threatArea,
+                        candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard))
+                .stream()
+                .min(java.util.Comparator.comparingDouble(guard::distanceToSqr))
+                .orElse(null);
+        if (threat == null) return;
+
+        AABB defenseArea = guard.getBoundingBox().inflate(24.0);
+        for (IronGolem golem : level.getEntitiesOfClass(IronGolem.class, defenseArea,
+                IronGolem::isAlive)) {
+            if (golem.getTarget() == null || !golem.getTarget().isAlive()) {
+                golem.setTarget(threat);
+            }
         }
     }
 
