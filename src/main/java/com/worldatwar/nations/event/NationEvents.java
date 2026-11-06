@@ -203,9 +203,34 @@ public final class NationEvents {
         if (threat == null) return false;
 
         BlockPos destination = threat.blockPosition();
-        if (level.hasChunkAt(destination) && guard.distanceToSqr(threat) > 16.0) {
-            guard.getNavigation().moveTo(destination.getX() + 0.5, destination.getY(),
-                    destination.getZ() + 0.5, 0.9);
+        if (!level.hasChunkAt(destination)) return true;
+
+        // Guards assigned to the same threat take separate positions around it instead of
+        // stacking on one block. UUID ordering makes slot assignments stable between updates.
+        AABB coordinationArea = threat.getBoundingBox().inflate(16.0);
+        java.util.List<Villager> responders = level.getEntitiesOfClass(Villager.class, coordinationArea,
+                        candidate -> candidate.isAlive()
+                                && faction.id().equals(data.findCitizen(candidate.getUUID())
+                                        .map(NationFaction::id).orElse(""))
+                                && faction.jobOf(candidate.getUUID()) == NationJob.GUARD)
+                .stream()
+                .sorted(java.util.Comparator.comparing(candidate -> candidate.getUUID().toString()))
+                .toList();
+        int slot = 0;
+        for (int i = 0; i < responders.size(); i++) {
+            if (responders.get(i).getUUID().equals(guard.getUUID())) {
+                slot = i;
+                break;
+            }
+        }
+        int responderCount = Math.max(1, responders.size());
+        double angle = (Math.PI * 2.0 * slot) / responderCount;
+        double targetX = threat.getX() + Math.cos(angle) * 3.5;
+        double targetZ = threat.getZ() + Math.sin(angle) * 3.5;
+        double dx = guard.getX() - targetX;
+        double dz = guard.getZ() - targetZ;
+        if (dx * dx + dz * dz > 4.0) {
+            guard.getNavigation().moveTo(targetX, destination.getY(), targetZ, 0.9);
         }
         return true;
     }
