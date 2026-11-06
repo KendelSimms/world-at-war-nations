@@ -45,6 +45,23 @@ public final class NationSavedData extends SavedData {
         return worksites.stream().anyMatch(site -> site.factionId().equals(factionId)
                 && site.type() == NationWorksite.Type.LUMBER && site.contains(pos, dimension));
     }
+
+    public boolean removeLumberWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
+        NationWorksite nearest = worksites.stream()
+                .filter(site -> site.factionId().equals(factionId)
+                        && site.type() == NationWorksite.Type.LUMBER
+                        && site.contains(pos, dimension))
+                .min(Comparator.comparingLong(site -> {
+                    long dx = (long) site.x() - pos.getX();
+                    long dy = (long) site.y() - pos.getY();
+                    long dz = (long) site.z() - pos.getZ();
+                    return dx * dx + dy * dy + dz * dz;
+                })).orElse(null);
+        if (nearest == null) return false;
+        worksites.remove(nearest);
+        setDirty();
+        return true;
+    }
     public Optional<NationFaction> findCitizen(UUID uuid) {
         return factions.values().stream().filter(faction -> faction.hasCitizen(uuid)).findFirst();
     }
