@@ -75,6 +75,7 @@ public final class NationEvents {
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
+                    if (job != NationJob.GUARD && retreatCivilianFromThreat(level, villager, faction)) continue;
                     guideWorkerToWorksite(level, villager, faction, data, job);
                     if (job == NationJob.GUARD) {
                         guideGuardToSettlement(level, villager, faction);
@@ -171,6 +172,27 @@ public final class NationEvents {
         if (level.hasChunkAt(patrolPoint)) {
             guard.getNavigation().moveTo(targetX + 0.5, current.getY(), targetZ + 0.5, 0.75);
         }
+    }
+
+    /**
+     * Non-guard citizens retreat toward their settlement center when hostile mobs get close.
+     * This is a simple evacuation response; it does not guarantee the center is safe.
+     */
+    private static boolean retreatCivilianFromThreat(ServerLevel level, Villager villager, NationFaction faction) {
+        AABB dangerArea = villager.getBoundingBox().inflate(12.0);
+        boolean threatened = !level.getEntitiesOfClass(Monster.class, dangerArea,
+                candidate -> candidate.isAlive() && !candidate.isAlliedTo(villager)).isEmpty();
+        if (!threatened) return false;
+
+        BlockPos refuge = new BlockPos(faction.centerX(), villager.blockPosition().getY(), faction.centerZ());
+        if (!level.hasChunkAt(refuge)) return true;
+
+        long dx = (long) refuge.getX() - villager.blockPosition().getX();
+        long dz = (long) refuge.getZ() - villager.blockPosition().getZ();
+        if (dx * dx + dz * dz > 16L) {
+            villager.getNavigation().moveTo(refuge.getX() + 0.5, refuge.getY(), refuge.getZ() + 0.5, 1.0);
+        }
+        return true;
     }
 
     /**
