@@ -73,6 +73,7 @@ public final class NationEvents {
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
+                    guideWorkerToWorksite(level, villager, faction, data, job);
                     if (job == NationJob.CRAFTSMAN || job == NationJob.GENERAL_WORKER) {
                         constructSmallShelter(level, villager, faction, data);
                         constructInfrastructure(level, villager, faction, data, NationWorksite.Type.STORAGE);
@@ -83,6 +84,48 @@ public final class NationEvents {
                     else if (job == NationJob.MINER && !harvestNearbyIronOre(level, villager, faction, data)) harvestNearbyStone(level, villager, faction, data);
                 }
             }
+        }
+    }
+
+    /**
+     * Sends assigned villagers toward the nearest unfinished worksite for their current job.
+     * Navigation is refreshed only when the worker is outside the worksite's eight-block radius.
+     */
+    private static void guideWorkerToWorksite(ServerLevel level, Villager villager, NationFaction faction,
+            NationSavedData data, NationJob job) {
+        String dimension = level.dimension().location().toString();
+        java.util.Set<NationWorksite.Type> allowed = switch (job) {
+            case FARMER -> java.util.Set.of(NationWorksite.Type.FARM);
+            case LUMBERJACK -> java.util.Set.of(NationWorksite.Type.LUMBER);
+            case MINER -> java.util.Set.of(NationWorksite.Type.MINING);
+            case CRAFTSMAN, GENERAL_WORKER -> java.util.Set.of(
+                    NationWorksite.Type.BUILD, NationWorksite.Type.STORAGE, NationWorksite.Type.WORKSHOP);
+            default -> java.util.Set.of();
+        };
+        if (allowed.isEmpty()) return;
+
+        BlockPos current = villager.blockPosition();
+        NationWorksite target = data.worksites().stream()
+                .filter(site -> site.factionId().equals(faction.id())
+                        && site.dimension().equals(dimension) && allowed.contains(site.type()))
+                .filter(site -> {
+                    BlockPos anchor = new BlockPos(site.x(), site.y(), site.z());
+                    if (site.type() == NationWorksite.Type.BUILD
+                            && data.isBuildSiteCompleted(faction.id(), dimension, anchor)) return false;
+                    if ((site.type() == NationWorksite.Type.STORAGE || site.type() == NationWorksite.Type.WORKSHOP)
+                            && data.isInfrastructureSiteCompleted(faction.id(), dimension, anchor, site.type())) return false;
+                    return true;
+                })
+                .min(java.util.Comparator.comparingLong(site -> {
+                    long dx = (long) site.x() - current.getX();
+                    long dy = (long) site.y() - current.getY();
+                    long dz = (long) site.z() - current.getZ();
+                    return dx * dx + dy * dy + dz * dz;
+                })).orElse(null);
+        if (target == null) return;
+        BlockPos anchor = new BlockPos(target.x(), target.y(), target.z());
+        if (!target.contains(current, dimension) && level.hasChunkAt(anchor)) {
+            villager.getNavigation().moveTo(target.x() + 0.5, target.y(), target.z() + 0.5, 0.8);
         }
     }
 
