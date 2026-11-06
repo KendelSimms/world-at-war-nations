@@ -46,6 +46,22 @@ public final class NationSavedData extends SavedData {
                 && site.type() == NationWorksite.Type.LUMBER && site.contains(pos, dimension));
     }
 
+    public boolean addFarmWorksite(NationFaction faction, String dimension, net.minecraft.core.BlockPos pos) {
+        if (!faction.dimension().equals(dimension)) return false;
+        boolean exists = worksites.stream().anyMatch(site -> site.factionId().equals(faction.id())
+                && site.type() == NationWorksite.Type.FARM && site.x() == pos.getX()
+                && site.y() == pos.getY() && site.z() == pos.getZ());
+        if (exists) return false;
+        worksites.add(new NationWorksite(faction.id(), dimension, pos.getX(), pos.getY(), pos.getZ(), NationWorksite.Type.FARM));
+        setDirty();
+        return true;
+    }
+
+    public boolean isFarmWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
+        return worksites.stream().anyMatch(site -> site.factionId().equals(factionId)
+                && site.type() == NationWorksite.Type.FARM && site.contains(pos, dimension));
+    }
+
     public boolean removeLumberWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
         NationWorksite nearest = worksites.stream()
                 .filter(site -> site.factionId().equals(factionId)
