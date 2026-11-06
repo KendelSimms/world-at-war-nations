@@ -172,6 +172,30 @@ public final class NationEvents {
             }
         }
 
+        // Guards without an active threat spread into nearby defensive posts around
+        // the settlement center. The UUID-derived slot keeps assignments stable.
+        java.util.List<Villager> guards = level.getEntitiesOfClass(Villager.class,
+                        guard.getBoundingBox().inflate(48.0),
+                        candidate -> candidate.isAlive()
+                                && faction.id().equals(NationSavedData.get(level.getServer())
+                                        .findCitizen(candidate.getUUID()).map(NationFaction::id).orElse(""))
+                                && faction.jobOf(candidate.getUUID()) == NationJob.GUARD)
+                .stream()
+                .sorted(java.util.Comparator.comparing(candidate -> candidate.getUUID().toString()))
+                .toList();
+        int guardSlot = 0;
+        for (int i = 0; i < guards.size(); i++) {
+            if (guards.get(i).getUUID().equals(guard.getUUID())) {
+                guardSlot = i;
+                break;
+            }
+        }
+        if (guards.size() > 1 && centerDx * centerDx + centerDz * centerDz <= 256L) {
+            double angle = (Math.PI * 2.0 * guardSlot) / guards.size();
+            targetX = faction.centerX() + (int) Math.round(Math.cos(angle) * patrolRadius);
+            targetZ = faction.centerZ() + (int) Math.round(Math.sin(angle) * patrolRadius);
+        }
+
         long dx = (long) targetX - current.getX();
         long dz = (long) targetZ - current.getZ();
         if (dx * dx + dz * dz <= 16L) return;
