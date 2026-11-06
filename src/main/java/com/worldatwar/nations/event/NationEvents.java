@@ -7,6 +7,7 @@ import com.worldatwar.nations.data.NationFaction;
 import com.worldatwar.nations.data.NationJob;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -24,6 +25,7 @@ public final class NationEvents {
     private static final long SIMULATION_INTERVAL_TICKS = 1200L;
     private static final long FARM_WORK_INTERVAL_TICKS = 200L;
     private static final int FARM_WORK_RADIUS = 4;
+    private static final int LUMBER_WORK_RADIUS = 6;
 
     private NationEvents() {}
 
@@ -64,11 +66,44 @@ public final class NationEvents {
                 for (Entity loaded : level.getAllEntities()) {
                     if (!(loaded instanceof Villager villager) || !villager.isAlive()) continue;
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
-                    if (faction == null || faction.jobOf(villager.getUUID()) != NationJob.FARMER) continue;
-                    harvestNearbyCrop(level, villager, data);
+                    if (faction == null) continue;
+                    NationJob job = faction.jobOf(villager.getUUID());
+                    if (job == NationJob.FARMER) harvestNearbyCrop(level, villager, data);
+                    else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, data);
                 }
             }
         }
+    }
+
+    /** A loaded lumberjack removes one nearby tree log with nearby leaves and stores timber. */
+    private static void harvestNearbyLog(ServerLevel level, Villager villager, NationSavedData data) {
+        BlockPos origin = villager.blockPosition();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dy = -1; dy <= 3; dy++) {
+            for (int dx = -LUMBER_WORK_RADIUS; dx <= LUMBER_WORK_RADIUS; dx++) {
+                for (int dz = -LUMBER_WORK_RADIUS; dz <= LUMBER_WORK_RADIUS; dz++) {
+                    cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
+                    BlockState state = level.getBlockState(cursor);
+                    if (!state.is(BlockTags.LOGS) || !hasNearbyLeaves(level, cursor)) continue;
+                    level.destroyBlock(cursor, false);
+                    data.recordPhysicalWoodHarvest(villager.getUUID(), 1.0);
+                    return;
+                }
+            }
+        }
+    }
+
+    private static boolean hasNearbyLeaves(ServerLevel level, BlockPos logPos) {
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dy = -3; dy <= 3; dy++) {
+                for (int dz = -3; dz <= 3; dz++) {
+                    cursor.set(logPos.getX() + dx, logPos.getY() + dy, logPos.getZ() + dz);
+                    if (level.getBlockState(cursor).is(BlockTags.LEAVES)) return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** A loaded farmer harvests and replants one mature crop near its current position. */
