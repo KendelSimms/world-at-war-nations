@@ -53,6 +53,7 @@ public final class NationCommands {
         source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "Stockpiles — Food %.1f | Wood %.1f | Stone %.1f | Iron %.1f | Knowledge %.1f",
                 f.food(), f.wood(), f.stone(), f.iron(), f.knowledge())), false);
+        source.sendSuccess(() -> Component.literal("Government — Strategic policy " + f.policy().name().toLowerCase(Locale.ROOT).replace('_', ' ')), false);
         source.sendSuccess(() -> Component.literal("Development — Technology " + f.technology() + " | Settlement tier " + f.settlementTier()
                 + " | Prosperity " + String.format(Locale.ROOT, "%.1f", f.prosperity())
                 + " | Stability " + String.format(Locale.ROOT, "%.1f", f.stability())
