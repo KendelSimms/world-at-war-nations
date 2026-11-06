@@ -131,7 +131,7 @@ public final class NationCommands {
         }
         source.sendSuccess(() -> Component.literal("Registered mining worksite for " + faction.name()
                 + " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
-                + ". This marks the permitted mining area; miners do not mine blocks yet."), true);
+                + ". This marks the permitted mining area; miners extract exposed iron ore, stone, and deepslate within it."), true);
         return 1;
     }
 
