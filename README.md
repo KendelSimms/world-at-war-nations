@@ -1,4 +1,4 @@
-# World At War: Nations — 0.1.1-alpha
+# World At War: Nations — 0.1.2-alpha
 
 Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the autonomous-civilization simulation layer for WORLD AT WAR — Global Conflict.
 
@@ -9,10 +9,12 @@ Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the auto
 - Tracks observed living NPC UUIDs and removes citizens on death.
 - Runs an autonomous abstract economy every 1,200 overworld ticks (60 in-game seconds).
 - Simulates food, wood, stone, iron, knowledge, prosperity, stability, military readiness, investment priorities, and technology.
+- Selects and persists an autonomous national strategic policy: food security, industrialization, defense, military expansion, research, or balanced development.
+- Shows each civilization's current strategic policy in `/wwn inspect <id>`.
 - Adds `/wwn factions`, `/wwn inspect <id>`, and `/wwn help`.
 
 ## Important limitations
-This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, establish diplomacy, form alliances, or wage wars. These are future milestones. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
+This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, establish diplomacy, form alliances, or wage wars. These remain future milestones. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
 
 A settlement is discovered only when its NPCs load. Known factions continue abstract simulation while chunks are unloaded as long as the server is running. Simulation does not advance while the server is shut down.
 
