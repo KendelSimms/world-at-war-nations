@@ -71,6 +71,11 @@ public final class NationEvents {
             NationSavedData data = NationSavedData.get(event.getServer());
             for (ServerLevel level : event.getServer().getAllLevels()) {
                 for (Entity loaded : level.getAllEntities()) {
+                    if (loaded instanceof AbstractIllager illager && illager.isAlive()) {
+                        NationFaction illagerFaction = data.findCitizen(illager.getUUID()).orElse(null);
+                        if (illagerFaction != null) defendIllagerAgainstMonsters(level, illager);
+                        continue;
+                    }
                     if (!(loaded instanceof Villager villager) || !villager.isAlive()) continue;
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
@@ -211,6 +216,22 @@ public final class NationEvents {
             villager.getNavigation().moveTo(refuge.getX() + 0.5, refuge.getY(), refuge.getZ() + 0.5, 1.0);
         }
         return true;
+    }
+
+    /**
+     * Gives registered illagers a basic local defense response: if they have no living target,
+     * they may engage the nearest non-allied hostile monster within 16 blocks.
+     * Existing combat targets are never overwritten.
+     */
+    private static void defendIllagerAgainstMonsters(ServerLevel level, AbstractIllager illager) {
+        if (illager.getTarget() != null && illager.getTarget().isAlive()) return;
+        AABB defenseArea = illager.getBoundingBox().inflate(16.0);
+        Monster threat = level.getEntitiesOfClass(Monster.class, defenseArea,
+                        candidate -> candidate != illager && candidate.isAlive() && !candidate.isAlliedTo(illager))
+                .stream()
+                .min(java.util.Comparator.comparingDouble(illager::distanceToSqr))
+                .orElse(null);
+        if (threat != null) illager.setTarget(threat);
     }
 
     /**
