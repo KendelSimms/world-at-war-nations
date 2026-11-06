@@ -180,15 +180,33 @@ public final class NationEvents {
      */
     private static boolean retreatCivilianFromThreat(ServerLevel level, Villager villager, NationFaction faction) {
         AABB dangerArea = villager.getBoundingBox().inflate(12.0);
-        boolean threatened = !level.getEntitiesOfClass(Monster.class, dangerArea,
-                candidate -> candidate.isAlive() && !candidate.isAlliedTo(villager)).isEmpty();
-        if (!threatened) return false;
+        Monster threat = level.getEntitiesOfClass(Monster.class, dangerArea,
+                        candidate -> candidate.isAlive() && !candidate.isAlliedTo(villager))
+                .stream()
+                .min(java.util.Comparator.comparingDouble(villager::distanceToSqr))
+                .orElse(null);
+        if (threat == null) return false;
 
-        BlockPos refuge = new BlockPos(faction.centerX(), villager.blockPosition().getY(), faction.centerZ());
+        // Move away from the nearest threat instead of blindly routing toward the settlement center,
+        // which could be on the far side of the hostile mob.
+        BlockPos current = villager.blockPosition();
+        double awayX = current.getX() - threat.blockPosition().getX();
+        double awayZ = current.getZ() - threat.blockPosition().getZ();
+        double length = Math.sqrt(awayX * awayX + awayZ * awayZ);
+        int targetX;
+        int targetZ;
+        if (length > 0.001) {
+            targetX = current.getX() + (int) Math.round(awayX / length * 16.0);
+            targetZ = current.getZ() + (int) Math.round(awayZ / length * 16.0);
+        } else {
+            targetX = faction.centerX();
+            targetZ = faction.centerZ();
+        }
+
+        BlockPos refuge = new BlockPos(targetX, current.getY(), targetZ);
         if (!level.hasChunkAt(refuge)) return true;
-
-        long dx = (long) refuge.getX() - villager.blockPosition().getX();
-        long dz = (long) refuge.getZ() - villager.blockPosition().getZ();
+        long dx = (long) refuge.getX() - current.getX();
+        long dz = (long) refuge.getZ() - current.getZ();
         if (dx * dx + dz * dz > 16L) {
             villager.getNavigation().moveTo(refuge.getX() + 0.5, refuge.getY(), refuge.getZ() + 0.5, 1.0);
         }
