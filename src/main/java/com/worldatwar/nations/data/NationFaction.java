@@ -26,6 +26,7 @@ public final class NationFaction {
     private int farms, lumberCamps, quarries, workshops, barracks;
     private int technology = 1, settlementTier = 1;
     private long simulationCount;
+    private NationPolicy policy = NationPolicy.BALANCED;
 
     public NationFaction(String id, String name, String dimension, FactionKind kind, int centerX, int centerZ) {
         this.id = id; this.name = name; this.dimension = dimension; this.kind = kind;
@@ -55,6 +56,7 @@ public final class NationFaction {
     public int workshops() { return workshops; }
     public int barracks() { return barracks; }
     public long simulationCount() { return simulationCount; }
+    public NationPolicy policy() { return policy; }
     public Set<UUID> citizens() { return citizens; }
     public List<String> recentDecisions() { return recentDecisions; }
     public boolean addCitizen(UUID uuid) { return citizens.add(uuid); }
@@ -76,6 +78,7 @@ public final class NationFaction {
         iron = clamp(iron + workers * 0.055 * efficiency + workshops * 0.55, 0, MAX_STOCKPILE);
         knowledge = clamp(knowledge + people * 0.03 + workshops * 0.30, 0, MAX_STOCKPILE);
         updateWelfare(people);
+        updatePolicy(people);
         makeIndependentDecision(people);
         updateSettlementTier();
     }
@@ -93,10 +96,50 @@ public final class NationFaction {
         else militaryReadiness = clamp(militaryReadiness - 0.1, 0, 100);
     }
 
+    private void updatePolicy(int people) {
+        NationPolicy next;
+        double foodPerPerson = food / Math.max(1, people);
+        if (foodPerPerson < 5.0 || food < Math.max(45, people * 6.0)) {
+            next = NationPolicy.FOOD_SECURITY;
+        } else if (kind == FactionKind.ILLAGER && people >= 3 && barracks < 2 && militaryReadiness < 65) {
+            next = NationPolicy.MILITARY_EXPANSION;
+        } else if (kind == FactionKind.VILLAGER && people >= 5 && barracks == 0 && militaryReadiness < 30) {
+            next = NationPolicy.DEFENSE;
+        } else if (iron >= 7 && knowledge >= 5 && workshops < 2) {
+            next = NationPolicy.INDUSTRIALIZATION;
+        } else if (knowledge >= 18.0 * technology) {
+            next = NationPolicy.RESEARCH;
+        } else {
+            next = NationPolicy.BALANCED;
+        }
+        if (next != policy) {
+            policy = next;
+            note("National leadership shifted its strategic policy to " + policy.name().toLowerCase().replace('_', ' '));
+        }
+    }
+
     private void makeIndependentDecision(int people) {
         double foodTarget = Math.max(35, people * 8.0);
         boolean illager = kind == FactionKind.ILLAGER;
-        if (food < foodTarget && wood >= 8 && stone >= 3) {
+
+        if (policy == NationPolicy.FOOD_SECURITY && food < foodTarget && wood >= 8 && stone >= 3) {
+            wood -= 8; stone -= 3; farms++;
+            note("Food security policy funded a new farm");
+        } else if (policy == NationPolicy.MILITARY_EXPANSION && people >= 3
+                && food >= 45 && wood >= 16 && stone >= 10 && barracks < 2) {
+            food -= 8; wood -= 14; stone -= 8; barracks++;
+            note("War council approved new military infrastructure");
+        } else if (policy == NationPolicy.DEFENSE && people >= 5
+                && food >= 60 && wood >= 18 && stone >= 12 && barracks == 0) {
+            food -= 10; wood -= 14; stone -= 9; barracks++;
+            note("Defense council established a protective barracks");
+        } else if (policy == NationPolicy.INDUSTRIALIZATION && iron >= 9 && knowledge >= 7 && wood >= 10) {
+            iron -= 5; knowledge -= 5; wood -= 10; workshops++;
+            note("Industrial policy funded a new workshop");
+        } else if (policy == NationPolicy.RESEARCH && knowledge >= 18.0 * technology) {
+            knowledge -= 18.0 * technology; technology++;
+            note("Research council advanced technology to level " + technology);
+        } else if (food < foodTarget && wood >= 8 && stone >= 3) {
             wood -= 8; stone -= 3; farms++;
             note("National council prioritized food security and approved a farm project");
         } else if (wood < 28 && stone >= 2) {
@@ -154,6 +197,7 @@ public final class NationFaction {
         tag.putInt("Workshops", workshops); tag.putInt("Barracks", barracks);
         tag.putInt("Technology", technology); tag.putInt("SettlementTier", settlementTier);
         tag.putLong("SimulationCount", simulationCount);
+        tag.putString("Policy", policy.name());
         ListTag citizensTag = new ListTag();
         for (UUID citizen : citizens) {
             CompoundTag citizenTag = new CompoundTag();
@@ -182,6 +226,10 @@ public final class NationFaction {
         faction.technology = Math.max(1, tag.getInt("Technology"));
         faction.settlementTier = Math.max(1, tag.getInt("SettlementTier"));
         faction.simulationCount = tag.getLong("SimulationCount");
+        if (tag.contains("Policy", Tag.TAG_STRING)) {
+            try { faction.policy = NationPolicy.valueOf(tag.getString("Policy")); }
+            catch (IllegalArgumentException ignored) { faction.policy = NationPolicy.BALANCED; }
+        }
         faction.citizens.clear();
         ListTag citizensTag = tag.getList("Citizens", Tag.TAG_COMPOUND);
         for (int i = 0; i < citizensTag.size(); i++) {
