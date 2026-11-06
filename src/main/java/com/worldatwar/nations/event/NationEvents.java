@@ -68,7 +68,7 @@ public final class NationEvents {
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
-                    if (job == NationJob.FARMER) harvestNearbyCrop(level, villager, data);
+                    if (job == NationJob.FARMER) harvestNearbyCrop(level, villager, faction, data);
                     else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, faction, data);
                 }
             }
@@ -108,7 +108,7 @@ public final class NationEvents {
     }
 
     /** A loaded farmer harvests and replants one mature crop near its current position. */
-    private static void harvestNearbyCrop(ServerLevel level, Villager villager, NationSavedData data) {
+    private static void harvestNearbyCrop(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
         BlockPos origin = villager.blockPosition();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int dy = -1; dy <= 1; dy++) {
@@ -116,7 +116,8 @@ public final class NationEvents {
                 for (int dz = -FARM_WORK_RADIUS; dz <= FARM_WORK_RADIUS; dz++) {
                     cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
                     BlockState state = level.getBlockState(cursor);
-                    if (!(state.getBlock() instanceof CropBlock crop) || !crop.isMaxAge(state)) continue;
+                    if (!(state.getBlock() instanceof CropBlock crop) || !crop.isMaxAge(state)
+                            || !data.isFarmWorksite(faction.id(), level.dimension().location().toString(), cursor)) continue;
                     level.setBlock(cursor, crop.getStateForAge(0), 3);
                     data.recordPhysicalFoodHarvest(villager.getUUID(), 1.0);
                     return;
