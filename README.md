@@ -1,4 +1,4 @@
-# World At War: Nations — 0.1.2-alpha
+# World At War: Nations — 0.1.3-alpha
 
 Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the autonomous-civilization simulation layer for WORLD AT WAR — Global Conflict.
 
@@ -11,10 +11,13 @@ Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the auto
 - Simulates food, wood, stone, iron, knowledge, prosperity, stability, military readiness, investment priorities, and technology.
 - Selects and persists an autonomous national strategic policy: food security, industrialization, defense, military expansion, research, or balanced development.
 - Shows each civilization's current strategic policy in `/wwn inspect <id>`.
+- Assigns each known citizen a saved strategic occupation: farmer, guard, lumberjack, miner, craftsman, scholar, or general worker.
+- Rebalances workforce occupations according to food needs, infrastructure, and national policy.
+- Displays workforce distribution in `/wwn inspect <id>`.
 - Adds `/wwn factions`, `/wwn inspect <id>`, and `/wwn help`.
 
 ## Important limitations
-This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, establish diplomacy, form alliances, or wage wars. These remain future milestones. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
+This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, establish diplomacy, form alliances, or wage wars. Physical work behavior remains a future milestone: assigned occupations currently represent national workforce planning and do not yet make NPCs perform block harvesting, construction, or job-site tasks. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
 
 A settlement is discovered only when its NPCs load. Known factions continue abstract simulation while chunks are unloaded as long as the server is running. Simulation does not advance while the server is shut down.
 
