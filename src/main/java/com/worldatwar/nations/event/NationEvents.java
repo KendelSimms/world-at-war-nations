@@ -74,6 +74,7 @@ public final class NationEvents {
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
                     guideWorkerToWorksite(level, villager, faction, data, job);
+                    if (job == NationJob.SCHOLAR) studyAtWorkshop(level, villager, faction, data);
                     if (job == NationJob.CRAFTSMAN || job == NationJob.GENERAL_WORKER) {
                         constructSmallShelter(level, villager, faction, data);
                         constructInfrastructure(level, villager, faction, data, NationWorksite.Type.STORAGE);
@@ -98,6 +99,7 @@ public final class NationEvents {
             case FARMER -> java.util.Set.of(NationWorksite.Type.FARM);
             case LUMBERJACK -> java.util.Set.of(NationWorksite.Type.LUMBER);
             case MINER -> java.util.Set.of(NationWorksite.Type.MINING);
+            case SCHOLAR -> java.util.Set.of(NationWorksite.Type.WORKSHOP);
             case CRAFTSMAN, GENERAL_WORKER -> java.util.Set.of(
                     NationWorksite.Type.BUILD, NationWorksite.Type.STORAGE, NationWorksite.Type.WORKSHOP);
             default -> java.util.Set.of();
@@ -112,7 +114,10 @@ public final class NationEvents {
                     BlockPos anchor = new BlockPos(site.x(), site.y(), site.z());
                     if (site.type() == NationWorksite.Type.BUILD
                             && data.isBuildSiteCompleted(faction.id(), dimension, anchor)) return false;
-                    if ((site.type() == NationWorksite.Type.STORAGE || site.type() == NationWorksite.Type.WORKSHOP)
+                    if (site.type() == NationWorksite.Type.STORAGE
+                            && data.isInfrastructureSiteCompleted(faction.id(), dimension, anchor, site.type())) return false;
+                    if (site.type() == NationWorksite.Type.WORKSHOP
+                            && job != NationJob.SCHOLAR
                             && data.isInfrastructureSiteCompleted(faction.id(), dimension, anchor, site.type())) return false;
                     return true;
                 })
@@ -127,6 +132,33 @@ public final class NationEvents {
         if (!target.contains(current, dimension) && level.hasChunkAt(anchor)) {
             villager.getNavigation().moveTo(target.x() + 0.5, target.y(), target.z() + 0.5, 0.8);
         }
+    }
+
+    /**
+     * Scholars generate national knowledge while stationed at a completed, intact workshop.
+     */
+    private static void studyAtWorkshop(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
+        String dimension = level.dimension().location().toString();
+        BlockPos current = villager.blockPosition();
+        NationWorksite site = data.worksites().stream()
+                .filter(candidate -> candidate.factionId().equals(faction.id())
+                        && candidate.dimension().equals(dimension)
+                        && candidate.type() == NationWorksite.Type.WORKSHOP)
+                .filter(candidate -> data.isInfrastructureSiteCompleted(faction.id(), dimension,
+                        new BlockPos(candidate.x(), candidate.y(), candidate.z()), NationWorksite.Type.WORKSHOP))
+                .filter(candidate -> {
+                    BlockPos anchor = new BlockPos(candidate.x(), candidate.y(), candidate.z());
+                    return level.hasChunkAt(anchor) && level.getBlockState(anchor).is(Blocks.CRAFTING_TABLE);
+                })
+                .min(java.util.Comparator.comparingLong(candidate -> {
+                    long dx = (long) candidate.x() - current.getX();
+                    long dy = (long) candidate.y() - current.getY();
+                    long dz = (long) candidate.z() - current.getZ();
+                    return dx * dx + dy * dy + dz * dz;
+                })).orElse(null);
+        if (site == null) return;
+        BlockPos anchor = new BlockPos(site.x(), site.y(), site.z());
+        if (site.contains(current, dimension)) data.recordPhysicalResearch(villager.getUUID(), 0.15);
     }
 
     /**
