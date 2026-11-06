@@ -7,7 +7,6 @@ import com.worldatwar.nations.data.NationFaction;
 import com.worldatwar.nations.data.NationJob;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.item.Items;
