@@ -1,4 +1,4 @@
-# World At War: Nations — 0.1.5-alpha
+# World At War: Nations — 0.1.6-alpha
 
 Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the autonomous-civilization simulation layer for WORLD AT WAR — Global Conflict.
 
@@ -19,11 +19,13 @@ Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the auto
 - Classifies relations as alliance, trade pact, peace, tense, rivalry, or war.
 - Adds `/wwn diplomacy` to inspect known relations.
 - Enables autonomous surplus food, wood, stone, and iron transfers between civilizations with trade pacts or alliances.
+- Calculates an estimated influence radius for each settlement from its population and development tier.
+- Adds `/wwn territory` to list settlement centers, influence radii, and potential overlaps with nearby settlements in the same dimension.
 - Trade exports preserve minimum national reserves and never intentionally export below configured safety stockpiles.
 - Adds `/wwn factions`, `/wwn inspect <id>`, and `/wwn help`.
 
 ## Important limitations
-This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, physically enforce diplomacy, spawn physical trade caravans, physically enforce treaties, or conduct combat. Friendly trade currently transfers abstract surplus stockpiles during the strategic simulation. Diplomatic statuses are currently strategic simulation data and do not yet trigger attacks, raids, or treaties with in-world effects. Physical work behavior remains a future milestone: assigned occupations currently represent national workforce planning and do not yet make NPCs perform block harvesting, construction, or job-site tasks. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
+This is an early simulation alpha, not a finished civilization AI. Territory is an estimated strategic influence radius, not a physical border or enforced land claim. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, physically enforce diplomacy, spawn physical trade caravans, physically enforce treaties, or conduct combat. Friendly trade currently transfers abstract surplus stockpiles during the strategic simulation. Diplomatic statuses are currently strategic simulation data and do not yet trigger attacks, raids, or treaties with in-world effects. Physical work behavior remains a future milestone: assigned occupations currently represent national workforce planning and do not yet make NPCs perform block harvesting, construction, or job-site tasks. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
 
 A settlement is discovered only when its NPCs load. Known factions continue abstract simulation while chunks are unloaded as long as the server is running. Simulation does not advance while the server is shut down.
 
