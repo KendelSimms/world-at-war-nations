@@ -22,6 +22,7 @@ public final class NationSavedData extends SavedData {
     private final Map<String, NationRelation> relations = new LinkedHashMap<>();
     private final java.util.List<NationWorksite> worksites = new java.util.ArrayList<>();
     private final java.util.Set<String> completedBuildSites = new java.util.HashSet<>();
+    private final java.util.Set<String> completedInfrastructureSites = new java.util.HashSet<>();
 
     public static NationSavedData get(MinecraftServer server) {
         ServerLevel overworld = server.overworld();
@@ -215,6 +216,33 @@ public final class NationSavedData extends SavedData {
         return true;
     }
 
+    private static String infrastructureSiteKey(String factionId, String dimension, net.minecraft.core.BlockPos pos, NationWorksite.Type type) {
+        return type.name() + "|" + factionId + "|" + dimension + "|" + pos.getX() + "|" + pos.getY() + "|" + pos.getZ();
+    }
+
+    public Optional<net.minecraft.core.BlockPos> findInfrastructureWorksite(String factionId, String dimension,
+            net.minecraft.core.BlockPos near, NationWorksite.Type type) {
+        return worksites.stream()
+                .filter(site -> site.factionId().equals(factionId) && site.type() == type && site.contains(near, dimension))
+                .min(Comparator.comparingLong(site -> {
+                    long dx = (long) site.x() - near.getX();
+                    long dy = (long) site.y() - near.getY();
+                    long dz = (long) site.z() - near.getZ();
+                    return dx * dx + dy * dy + dz * dz;
+                }))
+                .map(site -> new net.minecraft.core.BlockPos(site.x(), site.y(), site.z()));
+    }
+
+    public boolean isInfrastructureSiteCompleted(String factionId, String dimension,
+            net.minecraft.core.BlockPos pos, NationWorksite.Type type) {
+        return completedInfrastructureSites.contains(infrastructureSiteKey(factionId, dimension, pos, type));
+    }
+
+    public void markInfrastructureSiteCompleted(String factionId, String dimension,
+            net.minecraft.core.BlockPos pos, NationWorksite.Type type) {
+        if (completedInfrastructureSites.add(infrastructureSiteKey(factionId, dimension, pos, type))) setDirty();
+    }
+
     public boolean removeStorageWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
         return removeInfrastructureWorksite(factionId, dimension, pos, NationWorksite.Type.STORAGE);
     }
@@ -398,6 +426,9 @@ public final class NationSavedData extends SavedData {
         ListTag completedList = new ListTag();
         for (String key : completedBuildSites) { CompoundTag entry = new CompoundTag(); entry.putString("Key", key); completedList.add(entry); }
         tag.put("CompletedBuildSites", completedList);
+        ListTag completedInfrastructureList = new ListTag();
+        for (String key : completedInfrastructureSites) { CompoundTag entry = new CompoundTag(); entry.putString("Key", key); completedInfrastructureList.add(entry); }
+        tag.put("CompletedInfrastructureSites", completedInfrastructureList);
         return tag;
     }
 
@@ -417,6 +448,8 @@ public final class NationSavedData extends SavedData {
         for (int i = 0; i < worksiteList.size(); i++) data.worksites.add(NationWorksite.load(worksiteList.getCompound(i)));
         ListTag completedList = tag.getList("CompletedBuildSites", Tag.TAG_COMPOUND);
         for (int i = 0; i < completedList.size(); i++) data.completedBuildSites.add(completedList.getCompound(i).getString("Key"));
+        ListTag completedInfrastructureList = tag.getList("CompletedInfrastructureSites", Tag.TAG_COMPOUND);
+        for (int i = 0; i < completedInfrastructureList.size(); i++) data.completedInfrastructureSites.add(completedInfrastructureList.getCompound(i).getString("Key"));
         return data;
     }
 }
