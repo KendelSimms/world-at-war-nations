@@ -142,6 +142,12 @@ public final class NationFaction {
         prosperity = clamp(prosperity + 0.04, 0, 100);
     }
 
+    /** Adds stone credited by a physical miner working a designated quarry site. */
+    public void recordPhysicalStoneMining(double amount) {
+        stone = clamp(stone + Math.max(0.0, amount), 0, MAX_STOCKPILE);
+        prosperity = clamp(prosperity + 0.03, 0, 100);
+    }
+
     /** One abstract national planning/economy step. No world blocks are changed in this alpha. */
     /** Adds food produced by a physical worker action in the loaded world. */
     public void recordPhysicalFoodHarvest(double amount) {
