@@ -137,6 +137,12 @@ public final class NationFaction {
     public boolean hasCitizen(UUID uuid) { return citizens.contains(uuid); }
 
     /** One abstract national planning/economy step. No world blocks are changed in this alpha. */
+    /** Adds food produced by a physical worker action in the loaded world. */
+    public void recordPhysicalFoodHarvest(double amount) {
+        food = clamp(food + Math.max(0.0, amount), 0, MAX_STOCKPILE);
+        prosperity = clamp(prosperity + 0.05, 0, 100);
+    }
+
     public void simulate() {
         int people = population();
         if (people <= 0) return;
