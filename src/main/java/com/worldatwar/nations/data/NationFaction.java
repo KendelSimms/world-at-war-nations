@@ -53,6 +53,11 @@ public final class NationFaction {
     public double militaryReadiness() { return militaryReadiness; }
     public int technology() { return technology; }
     public int settlementTier() { return settlementTier; }
+    /** Estimated strategic influence radius in blocks; this is not a physical border. */
+    public int territoryRadius() {
+        int populationContribution = Math.min(160, population() * 4);
+        return Math.min(512, 64 + settlementTier * 32 + populationContribution);
+    }
     public int farms() { return farms; }
     public int lumberCamps() { return lumberCamps; }
     public int quarries() { return quarries; }
