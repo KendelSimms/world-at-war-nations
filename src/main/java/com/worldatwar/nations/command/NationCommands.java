@@ -20,9 +20,16 @@ public final class NationCommands {
                 .then(Commands.literal("factions").executes(context -> listFactions(context.getSource())))
                 .then(Commands.literal("diplomacy").executes(context -> listDiplomacy(context.getSource())))
                 .then(Commands.literal("territory").executes(context -> listTerritory(context.getSource())))
-                .then(Commands.literal("worksite").then(Commands.literal("lumber")
-                        .then(Commands.argument("id", StringArgumentType.word())
-                                .executes(context -> addLumberWorksite(context.getSource(), StringArgumentType.getString(context, "id"))))))
+                .then(Commands.literal("worksite")
+                        .then(Commands.literal("lumber")
+                                .then(Commands.argument("id", StringArgumentType.word())
+                                        .executes(context -> addLumberWorksite(context.getSource(), StringArgumentType.getString(context, "id")))))
+                        .then(Commands.literal("remove")
+                                .then(Commands.argument("id", StringArgumentType.word())
+                                        .executes(context -> removeLumberWorksite(context.getSource(), StringArgumentType.getString(context, "id")))))
+                        .then(Commands.literal("list")
+                                .then(Commands.argument("id", StringArgumentType.word())
+                                        .executes(context -> listWorksites(context.getSource(), StringArgumentType.getString(context, "id"))))))
                 .then(Commands.literal("inspect")
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> inspectFaction(context.getSource(), StringArgumentType.getString(context, "id")))))
@@ -56,6 +63,39 @@ public final class NationCommands {
                 + " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
                 + ". Lumberjacks may harvest only within 8 blocks of this marker."), true);
         return 1;
+    }
+
+    private static int removeLumberWorksite(CommandSourceStack source, String id) {
+        NationSavedData data = NationSavedData.get(source.getServer());
+        NationFaction faction = data.find(id).orElse(null);
+        if (faction == null) {
+            source.sendFailure(Component.literal("Unknown faction ID. Use /wwn factions."));
+            return 0;
+        }
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(source.getPosition());
+        String dimension = source.getLevel().dimension().location().toString();
+        if (!data.removeLumberWorksite(id, dimension, pos)) {
+            source.sendFailure(Component.literal("No lumber worksite for this faction is within 8 blocks of your position."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Removed the nearest lumber worksite for " + faction.name() + "."), true);
+        return 1;
+    }
+
+    private static int listWorksites(CommandSourceStack source, String id) {
+        NationSavedData data = NationSavedData.get(source.getServer());
+        NationFaction faction = data.find(id).orElse(null);
+        if (faction == null) {
+            source.sendFailure(Component.literal("Unknown faction ID. Use /wwn factions."));
+            return 0;
+        }
+        var sites = data.worksites().stream().filter(site -> site.factionId().equals(id)).toList();
+        source.sendSuccess(() -> Component.literal("Worksites for " + faction.name() + ": " + sites.size()), false);
+        for (var site : sites) {
+            source.sendSuccess(() -> Component.literal("- " + site.type().name().toLowerCase(Locale.ROOT)
+                    + " | " + site.dimension() + " | " + site.x() + ", " + site.y() + ", " + site.z()), false);
+        }
+        return sites.size();
     }
 
     private static int listFactions(CommandSourceStack source) {
@@ -157,6 +197,8 @@ public final class NationCommands {
         source.sendSuccess(() -> Component.literal("/wwn diplomacy — view relations between civilizations"), false);
         source.sendSuccess(() -> Component.literal("/wwn territory — view estimated influence radii and potential overlaps"), false);
         source.sendSuccess(() -> Component.literal("/wwn worksite lumber <factionId> — designate a lumber worksite at your position"), false);
+        source.sendSuccess(() -> Component.literal("/wwn worksite list <factionId> — list a faction's worksites"), false);
+        source.sendSuccess(() -> Component.literal("/wwn worksite remove <factionId> — remove the nearest worksite within 8 blocks"), false);
         source.sendSuccess(() -> Component.literal("Civilizations simulate autonomously every 60 in-game seconds. No player orders are required."), false);
         return 1;
     }
