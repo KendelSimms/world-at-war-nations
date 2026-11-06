@@ -7,6 +7,7 @@ import com.worldatwar.nations.data.NationFaction;
 import com.worldatwar.nations.data.NationJob;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.item.Items;
@@ -88,13 +89,12 @@ public final class NationEvents {
      * It only places blocks into a completely clear, supported footprint and never replaces terrain or structures.
      */
     private static void constructSmallShelter(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
-        BlockPos base = villager.blockPosition();
         String dimension = level.dimension().location().toString();
-        if (!data.isBuildWorksite(faction.id(), dimension, base)) return;
+        BlockPos workerPos = villager.blockPosition();
+        BlockPos base = data.findBuildWorksite(faction.id(), dimension, workerPos).orElse(null);
+        if (base == null || data.isBuildSiteCompleted(faction.id(), dimension, base)) return;
 
-        AABB buildVolume = new AABB(base.offset(-1, 0, -1), base.offset(2, 3, 2));
-        if (!level.getEntities(villager, buildVolume).isEmpty()) return;
-
+        // The reserved marker is the permanent anchor, so workers cannot scatter huts around the site.
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 BlockPos ground = base.offset(dx, -1, dz);
@@ -110,23 +110,25 @@ public final class NationEvents {
             }
         }
 
-        // 8 lower wall blocks + 7 upper wall blocks + 9 roof blocks = 24 total.
-        if (!data.spendWoodForConstruction(faction.id(), 24.0)) return;
+        AABB buildVolume = new AABB(base.offset(-1, 0, -1), base.offset(2, 3, 2));
+        if (!level.getEntities(villager, buildVolume).isEmpty()) return;
+
+        // 8 lower wall blocks + 8 upper wall blocks + 9 roof blocks = 25.
+        if (!data.spendWoodForConstruction(faction.id(), 25.0)) return;
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 boolean perimeter = Math.abs(dx) == 1 || Math.abs(dz) == 1;
                 if (perimeter) {
-                    BlockPos lower = base.offset(dx, 0, dz);
-                    BlockPos upper = base.offset(dx, 1, dz);
                     // Leave a two-block-high doorway on the south-facing wall.
                     if (!(dz == 1 && dx == 0)) {
-                        level.setBlock(lower, Blocks.OAK_PLANKS.defaultBlockState(), 3);
-                        level.setBlock(upper, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+                        level.setBlock(base.offset(dx, 0, dz), Blocks.OAK_PLANKS.defaultBlockState(), 3);
+                        level.setBlock(base.offset(dx, 1, dz), Blocks.OAK_PLANKS.defaultBlockState(), 3);
                     }
                 }
                 level.setBlock(base.offset(dx, 2, dz), Blocks.OAK_PLANKS.defaultBlockState(), 3);
             }
         }
+        data.markBuildSiteCompleted(faction.id(), dimension, base);
     }
 
     /** A loaded lumberjack removes one nearby tree log only inside its faction's designated lumber worksite. */
