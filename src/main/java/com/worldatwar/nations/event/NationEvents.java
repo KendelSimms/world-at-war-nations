@@ -5,6 +5,7 @@ import com.worldatwar.nations.data.FactionKind;
 import com.worldatwar.nations.data.NationSavedData;
 import com.worldatwar.nations.data.NationFaction;
 import com.worldatwar.nations.data.NationJob;
+import com.worldatwar.nations.data.NationWorksite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.CropBlock;
