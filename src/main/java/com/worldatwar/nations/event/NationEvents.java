@@ -6,6 +6,7 @@ import com.worldatwar.nations.data.NationSavedData;
 import com.worldatwar.nations.data.NationFaction;
 import com.worldatwar.nations.data.NationJob;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.item.Items;
@@ -91,7 +92,9 @@ public final class NationEvents {
         String dimension = level.dimension().location().toString();
         if (!data.isBuildWorksite(faction.id(), dimension, base)) return;
 
-        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        AABB buildVolume = new AABB(base.offset(-1, 0, -1), base.offset(2, 3, 2));
+        if (!level.getEntities(villager, buildVolume).isEmpty()) return;
+
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 BlockPos ground = base.offset(dx, -1, dz);
@@ -107,6 +110,7 @@ public final class NationEvents {
             }
         }
 
+        // 8 lower wall blocks + 7 upper wall blocks + 9 roof blocks = 24 total.
         if (!data.spendWoodForConstruction(faction.id(), 24.0)) return;
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
@@ -114,9 +118,11 @@ public final class NationEvents {
                 if (perimeter) {
                     BlockPos lower = base.offset(dx, 0, dz);
                     BlockPos upper = base.offset(dx, 1, dz);
-                    // Leave a two-block doorway on the south-facing wall.
-                    if (!(dz == 1 && dx == 0)) level.setBlock(lower, Blocks.OAK_PLANKS.defaultBlockState(), 3);
-                    level.setBlock(upper, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+                    // Leave a two-block-high doorway on the south-facing wall.
+                    if (!(dz == 1 && dx == 0)) {
+                        level.setBlock(lower, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+                        level.setBlock(upper, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+                    }
                 }
                 level.setBlock(base.offset(dx, 2, dz), Blocks.OAK_PLANKS.defaultBlockState(), 3);
             }
