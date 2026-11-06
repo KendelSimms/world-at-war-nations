@@ -3,7 +3,7 @@ package com.worldatwar.nations.data;
 import net.minecraft.core.BlockPos;
 
 public record NationWorksite(String factionId, String dimension, int x, int y, int z, Type type) {
-    public enum Type { LUMBER, FARM, MINING, BUILD }
+    public enum Type { LUMBER, FARM, MINING, BUILD, STORAGE, WORKSHOP }
 
     public boolean contains(BlockPos pos, String currentDimension) {
         if (!dimension.equals(currentDimension)) return false;
