@@ -3,6 +3,11 @@ package com.worldatwar.nations.event;
 import com.worldatwar.nations.WorldAtWarNations;
 import com.worldatwar.nations.data.FactionKind;
 import com.worldatwar.nations.data.NationSavedData;
+import com.worldatwar.nations.data.NationFaction;
+import com.worldatwar.nations.data.NationJob;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -17,6 +22,8 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = WorldAtWarNations.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class NationEvents {
     private static final long SIMULATION_INTERVAL_TICKS = 1200L;
+    private static final long FARM_WORK_INTERVAL_TICKS = 200L;
+    private static final int FARM_WORK_RADIUS = 4;
 
     private NationEvents() {}
 
@@ -50,6 +57,35 @@ public final class NationEvents {
         long gameTime = event.getServer().overworld().getGameTime();
         if (gameTime > 0 && gameTime % SIMULATION_INTERVAL_TICKS == 0) {
             NationSavedData.get(event.getServer()).simulateAll();
+        }
+        if (gameTime > 0 && gameTime % FARM_WORK_INTERVAL_TICKS == 0) {
+            NationSavedData data = NationSavedData.get(event.getServer());
+            for (ServerLevel level : event.getServer().getAllLevels()) {
+                for (Entity loaded : level.getAllEntities()) {
+                    if (!(loaded instanceof Villager villager) || !villager.isAlive()) continue;
+                    NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
+                    if (faction == null || faction.jobOf(villager.getUUID()) != NationJob.FARMER) continue;
+                    harvestNearbyCrop(level, villager, data);
+                }
+            }
+        }
+    }
+
+    /** A loaded farmer harvests and replants one mature crop near its current position. */
+    private static void harvestNearbyCrop(ServerLevel level, Villager villager, NationSavedData data) {
+        BlockPos origin = villager.blockPosition();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -FARM_WORK_RADIUS; dx <= FARM_WORK_RADIUS; dx++) {
+                for (int dz = -FARM_WORK_RADIUS; dz <= FARM_WORK_RADIUS; dz++) {
+                    cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
+                    BlockState state = level.getBlockState(cursor);
+                    if (!(state.getBlock() instanceof CropBlock crop) || !crop.isMaxAge(state)) continue;
+                    level.setBlock(cursor, crop.getStateForAge(0), 3);
+                    data.recordPhysicalFoodHarvest(villager.getUUID(), 1.0);
+                    return;
+                }
+            }
         }
     }
 }
