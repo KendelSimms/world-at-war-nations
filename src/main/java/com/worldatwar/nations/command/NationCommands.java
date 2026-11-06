@@ -20,10 +20,42 @@ public final class NationCommands {
                 .then(Commands.literal("factions").executes(context -> listFactions(context.getSource())))
                 .then(Commands.literal("diplomacy").executes(context -> listDiplomacy(context.getSource())))
                 .then(Commands.literal("territory").executes(context -> listTerritory(context.getSource())))
+                .then(Commands.literal("worksite").then(Commands.literal("lumber")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> addLumberWorksite(context.getSource(), StringArgumentType.getString(context, "id"))))))
                 .then(Commands.literal("inspect")
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> inspectFaction(context.getSource(), StringArgumentType.getString(context, "id")))))
                 .then(Commands.literal("help").executes(context -> help(context.getSource()))));
+    }
+
+    private static int addLumberWorksite(CommandSourceStack source, String id) {
+        NationSavedData data = NationSavedData.get(source.getServer());
+        NationFaction faction = data.find(id).orElse(null);
+        if (faction == null) {
+            source.sendFailure(Component.literal("Unknown faction ID. Use /wwn factions."));
+            return 0;
+        }
+        String dimension = source.getLevel().dimension().location().toString();
+        if (!faction.dimension().equals(dimension)) {
+            source.sendFailure(Component.literal("You must place this worksite in the faction's dimension."));
+            return 0;
+        }
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(source.getPosition());
+        double dx = pos.getX() - faction.centerX();
+        double dz = pos.getZ() - faction.centerZ();
+        if (dx * dx + dz * dz > (double) faction.territoryRadius() * faction.territoryRadius()) {
+            source.sendFailure(Component.literal("That position is outside the faction's estimated influence radius."));
+            return 0;
+        }
+        if (!data.addLumberWorksite(faction, dimension, pos)) {
+            source.sendFailure(Component.literal("A lumber worksite already exists at that position."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Registered lumber worksite for " + faction.name()
+                + " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
+                + ". Lumberjacks may harvest only within 8 blocks of this marker."), true);
+        return 1;
     }
 
     private static int listFactions(CommandSourceStack source) {
@@ -123,7 +155,7 @@ public final class NationCommands {
         source.sendSuccess(() -> Component.literal("/wwn factions — list discovered civilizations"), false);
         source.sendSuccess(() -> Component.literal("/wwn inspect <id> — view a civilization's economy and decisions"), false);
         source.sendSuccess(() -> Component.literal("/wwn diplomacy — view relations between civilizations"), false);
-        source.sendSuccess(() -> Component.literal("/wwn territory — view estimated influence radii and potential overlaps"), false);
+        source.sendSuccess(() -> Component.literal("/wwn territory — view estimated influence radii and potential overlaps"), false);\n        source.sendSuccess(() -> Component.literal("/wwn worksite lumber <factionId> — designate a lumber worksite at your position"), false);
         source.sendSuccess(() -> Component.literal("Civilizations simulate autonomously every 60 in-game seconds. No player orders are required."), false);
         return 1;
     }
