@@ -1,4 +1,4 @@
-# World At War: Nations — 0.1.6-alpha
+# World At War: Nations — 0.1.7-alpha
 
 Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the autonomous-civilization simulation layer for WORLD AT WAR — Global Conflict.
 
@@ -17,10 +17,11 @@ Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the auto
 - Tracks persistent bilateral relations between active civilizations in the same dimension.
 - Autonomously shifts diplomatic opinion based on faction type, prosperity, stability, and military readiness.
 - Classifies relations as alliance, trade pact, peace, tense, rivalry, or war.
-- Adds `/wwn diplomacy` to inspect known relations.
+- Adds `/wwn diplomacy` to inspect known relations by settlement name, status, and opinion score.
 - Enables autonomous surplus food, wood, stone, and iron transfers between civilizations with trade pacts or alliances.
 - Calculates an estimated influence radius for each settlement from its population and development tier.
 - Adds `/wwn territory` to list settlement centers, influence radii, and potential overlaps with nearby settlements in the same dimension.
+- Shows estimated territory radius directly in `/wwn inspect <id>`.
 - Trade exports preserve minimum national reserves and never intentionally export below configured safety stockpiles.
 - Adds `/wwn factions`, `/wwn inspect <id>`, and `/wwn help`.
 
