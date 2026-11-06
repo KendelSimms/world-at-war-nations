@@ -155,7 +155,8 @@ public final class NationCommands {
         source.sendSuccess(() -> Component.literal("/wwn factions — list discovered civilizations"), false);
         source.sendSuccess(() -> Component.literal("/wwn inspect <id> — view a civilization's economy and decisions"), false);
         source.sendSuccess(() -> Component.literal("/wwn diplomacy — view relations between civilizations"), false);
-        source.sendSuccess(() -> Component.literal("/wwn territory — view estimated influence radii and potential overlaps"), false);\n        source.sendSuccess(() -> Component.literal("/wwn worksite lumber <factionId> — designate a lumber worksite at your position"), false);
+        source.sendSuccess(() -> Component.literal("/wwn territory — view estimated influence radii and potential overlaps"), false);
+        source.sendSuccess(() -> Component.literal("/wwn worksite lumber <factionId> — designate a lumber worksite at your position"), false);
         source.sendSuccess(() -> Component.literal("Civilizations simulate autonomously every 60 in-game seconds. No player orders are required."), false);
         return 1;
     }
