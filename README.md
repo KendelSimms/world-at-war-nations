@@ -1,4 +1,4 @@
-# World At War: Nations — 0.1.3-alpha
+# World At War: Nations — 0.1.4-alpha
 
 Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the autonomous-civilization simulation layer for WORLD AT WAR — Global Conflict.
 
@@ -14,10 +14,14 @@ Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the auto
 - Assigns each known citizen a saved strategic occupation: farmer, guard, lumberjack, miner, craftsman, scholar, or general worker.
 - Rebalances workforce occupations according to food needs, infrastructure, and national policy.
 - Displays workforce distribution in `/wwn inspect <id>`.
+- Tracks persistent bilateral relations between active civilizations in the same dimension.
+- Autonomously shifts diplomatic opinion based on faction type, prosperity, stability, and military readiness.
+- Classifies relations as alliance, trade pact, peace, tense, rivalry, or war.
+- Adds `/wwn diplomacy` to inspect known relations.
 - Adds `/wwn factions`, `/wwn inspect <id>`, and `/wwn help`.
 
 ## Important limitations
-This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, establish diplomacy, form alliances, or wage wars. Physical work behavior remains a future milestone: assigned occupations currently represent national workforce planning and do not yet make NPCs perform block harvesting, construction, or job-site tasks. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
+This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, physically enforce diplomacy, form working trade routes, or conduct combat. Diplomatic statuses are currently strategic simulation data and do not yet trigger attacks, raids, or treaties with in-world effects. Physical work behavior remains a future milestone: assigned occupations currently represent national workforce planning and do not yet make NPCs perform block harvesting, construction, or job-site tasks. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
 
 A settlement is discovered only when its NPCs load. Known factions continue abstract simulation while chunks are unloaded as long as the server is running. Simulation does not advance while the server is shut down.
 
