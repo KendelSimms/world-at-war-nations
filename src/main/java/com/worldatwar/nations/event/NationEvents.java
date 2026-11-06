@@ -6,6 +6,8 @@ import com.worldatwar.nations.data.NationSavedData;
 import com.worldatwar.nations.data.NationFaction;
 import com.worldatwar.nations.data.NationJob;
 import com.worldatwar.nations.data.NationWorksite;
+import com.worldatwar.nations.data.NationRelation;
+import com.worldatwar.nations.data.NationRelationStatus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.CropBlock;
@@ -229,13 +231,31 @@ public final class NationEvents {
         AABB defenseArea = illager.getBoundingBox().inflate(16.0);
         Monster threat = level.getEntitiesOfClass(Monster.class, defenseArea,
                         candidate -> candidate != illager && candidate.isAlive() && !candidate.isAlliedTo(illager)
-                                && data.findCitizen(candidate.getUUID())
-                                        .map(otherFaction -> !otherFaction.id().equals(faction.id()))
-                                        .orElse(true))
+                                && isDiplomaticallyHostile(candidate, faction, data))
                 .stream()
                 .min(java.util.Comparator.comparingDouble(illager::distanceToSqr))
                 .orElse(null);
         if (threat != null) illager.setTarget(threat);
+    }
+
+    /**
+     * Unregistered monsters remain local threats. Registered civilizations are only valid
+     * targets when their bilateral relationship has deteriorated to RIVALRY or WAR.
+     * Same-faction members and peaceful, trading, allied, or merely tense factions are ignored.
+     */
+    private static boolean isDiplomaticallyHostile(Monster candidate, NationFaction defender,
+            NationSavedData data) {
+        NationFaction attacker = data.findCitizen(candidate.getUUID()).orElse(null);
+        if (attacker == null) return true;
+        if (attacker.id().equals(defender.id())) return false;
+        return data.relations().stream()
+                .filter(relation -> (relation.firstFactionId().equals(defender.id())
+                                && relation.secondFactionId().equals(attacker.id()))
+                        || (relation.firstFactionId().equals(attacker.id())
+                                && relation.secondFactionId().equals(defender.id())))
+                .map(NationRelation::status)
+                .anyMatch(status -> status == NationRelationStatus.RIVALRY
+                        || status == NationRelationStatus.WAR);
     }
 
     /**
