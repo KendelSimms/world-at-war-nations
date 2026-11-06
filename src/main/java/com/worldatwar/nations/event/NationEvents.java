@@ -8,6 +8,7 @@ import com.worldatwar.nations.data.NationJob;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.item.Items;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.server.level.ServerLevel;
@@ -70,7 +71,7 @@ public final class NationEvents {
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
-                    if (job == NationJob.FARMER) harvestNearbyCrop(level, villager, faction, data);
+                    if (job == NationJob.FARMER && !harvestNearbyCrop(level, villager, faction, data)) plantNearbyWheat(level, villager, faction, data);
                     else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, faction, data);
                     else if (job == NationJob.MINER && !harvestNearbyIronOre(level, villager, faction, data)) harvestNearbyStone(level, villager, faction, data);
                 }
@@ -165,7 +166,7 @@ public final class NationEvents {
     }
 
     /** A loaded farmer harvests and replants one mature crop near its current position. */
-    private static void harvestNearbyCrop(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
+    private static boolean harvestNearbyCrop(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
         BlockPos origin = villager.blockPosition();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int dy = -1; dy <= 1; dy++) {
@@ -177,6 +178,30 @@ public final class NationEvents {
                             || !data.isFarmWorksite(faction.id(), level.dimension().location().toString(), cursor)) continue;
                     level.setBlock(cursor, crop.getStateForAge(0), 3);
                     data.recordPhysicalFoodHarvest(villager.getUUID(), 1.0);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Plants one wheat seed on empty farmland inside the registered farm worksite. */
+    private static void plantNearbyWheat(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
+        if (villager.getInventory().countItem(Items.WHEAT_SEEDS) <= 0) return;
+        BlockPos origin = villager.blockPosition();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -FARM_WORK_RADIUS; dx <= FARM_WORK_RADIUS; dx++) {
+                for (int dz = -FARM_WORK_RADIUS; dz <= FARM_WORK_RADIUS; dz++) {
+                    cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
+                    BlockPos cropPos = cursor.above();
+                    if (!level.getBlockState(cursor).is(Blocks.FARMLAND) || !level.getBlockState(cropPos).isAir()
+                            || !data.isFarmWorksite(faction.id(), level.dimension().location().toString(), cropPos)) continue;
+                    net.minecraft.world.item.ItemStack seed = villager.getInventory().removeItemType(Items.WHEAT_SEEDS, 1);
+                    if (seed.isEmpty()) return;
+                    if (!level.setBlock(cropPos, Blocks.WHEAT.defaultBlockState(), 3)) {
+                        villager.getInventory().addItem(seed);
+                    }
                     return;
                 }
             }
