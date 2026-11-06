@@ -1,4 +1,4 @@
-# World At War: Nations — 0.1.4-alpha
+# World At War: Nations — 0.1.5-alpha
 
 Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the autonomous-civilization simulation layer for WORLD AT WAR — Global Conflict.
 
@@ -18,10 +18,12 @@ Standalone Forge mod for Minecraft Java 1.20.1 / Forge 47.4.10. This is the auto
 - Autonomously shifts diplomatic opinion based on faction type, prosperity, stability, and military readiness.
 - Classifies relations as alliance, trade pact, peace, tense, rivalry, or war.
 - Adds `/wwn diplomacy` to inspect known relations.
+- Enables autonomous surplus food, wood, stone, and iron transfers between civilizations with trade pacts or alliances.
+- Trade exports preserve minimum national reserves and never intentionally export below configured safety stockpiles.
 - Adds `/wwn factions`, `/wwn inspect <id>`, and `/wwn help`.
 
 ## Important limitations
-This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, physically enforce diplomacy, form working trade routes, or conduct combat. Diplomatic statuses are currently strategic simulation data and do not yet trigger attacks, raids, or treaties with in-world effects. Physical work behavior remains a future milestone: assigned occupations currently represent national workforce planning and do not yet make NPCs perform block harvesting, construction, or job-site tasks. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
+This is an early simulation alpha, not a finished civilization AI. Buildings and projects are abstract counters; the mod does not physically harvest blocks, place structures, assign visible NPC jobs, spawn citizens, run trade caravans, physically enforce diplomacy, spawn physical trade caravans, physically enforce treaties, or conduct combat. Friendly trade currently transfers abstract surplus stockpiles during the strategic simulation. Diplomatic statuses are currently strategic simulation data and do not yet trigger attacks, raids, or treaties with in-world effects. Physical work behavior remains a future milestone: assigned occupations currently represent national workforce planning and do not yet make NPCs perform block harvesting, construction, or job-site tasks. Population counts are observed living NPC UUIDs, not simulated demographic estimates.
 
 A settlement is discovered only when its NPCs load. Known factions continue abstract simulation while chunks are unloaded as long as the server is running. Simulation does not advance while the server is shut down.
 
