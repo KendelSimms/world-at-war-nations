@@ -143,6 +143,12 @@ public final class NationFaction {
         prosperity = clamp(prosperity + 0.05, 0, 100);
     }
 
+    /** Adds timber gathered by a physical lumberjack action in the loaded world. */
+    public void recordPhysicalWoodHarvest(double amount) {
+        wood = clamp(wood + Math.max(0.0, amount), 0, MAX_STOCKPILE);
+        prosperity = clamp(prosperity + 0.03, 0, 100);
+    }
+
     public void simulate() {
         int people = population();
         if (people <= 0) return;
