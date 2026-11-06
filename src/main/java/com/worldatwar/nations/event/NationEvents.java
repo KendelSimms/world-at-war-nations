@@ -74,6 +74,7 @@ public final class NationEvents {
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
                     guideWorkerToWorksite(level, villager, faction, data, job);
+                    if (job == NationJob.GUARD) guideGuardToSettlement(level, villager, faction);
                     if (job == NationJob.SCHOLAR) studyAtWorkshop(level, villager, faction, data);
                     if (job == NationJob.CRAFTSMAN || job == NationJob.GENERAL_WORKER) {
                         constructSmallShelter(level, villager, faction, data);
@@ -131,6 +132,23 @@ public final class NationEvents {
         BlockPos anchor = new BlockPos(target.x(), target.y(), target.z());
         if (!target.contains(current, dimension) && level.hasChunkAt(anchor)) {
             villager.getNavigation().moveTo(target.x() + 0.5, target.y(), target.z() + 0.5, 0.8);
+        }
+    }
+
+    /**
+     * Keeps assigned guards near their civilization's founding settlement center.
+     * This is defensive positioning only; guards do not yet engage hostile factions.
+     */
+    private static void guideGuardToSettlement(ServerLevel level, Villager guard, NationFaction faction) {
+        BlockPos current = guard.blockPosition();
+        long dx = (long) faction.centerX() - current.getX();
+        long dz = (long) faction.centerZ() - current.getZ();
+        if (dx * dx + dz * dz <= 256L) return;
+
+        BlockPos rallyPoint = new BlockPos(faction.centerX(), current.getY(), faction.centerZ());
+        if (level.hasChunkAt(rallyPoint)) {
+            guard.getNavigation().moveTo(faction.centerX() + 0.5, current.getY(),
+                    faction.centerZ() + 0.5, 0.75);
         }
     }
 
