@@ -95,6 +95,39 @@ public final class NationSavedData extends SavedData {
         setDirty();
         return true;
     }
+    public boolean addMiningWorksite(NationFaction faction, String dimension, net.minecraft.core.BlockPos pos) {
+        if (!faction.dimension().equals(dimension)) return false;
+        boolean exists = worksites.stream().anyMatch(site -> site.factionId().equals(faction.id())
+                && site.type() == NationWorksite.Type.MINING && site.x() == pos.getX()
+                && site.y() == pos.getY() && site.z() == pos.getZ());
+        if (exists) return false;
+        worksites.add(new NationWorksite(faction.id(), dimension, pos.getX(), pos.getY(), pos.getZ(), NationWorksite.Type.MINING));
+        setDirty();
+        return true;
+    }
+
+    public boolean isMiningWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
+        return worksites.stream().anyMatch(site -> site.factionId().equals(factionId)
+                && site.type() == NationWorksite.Type.MINING && site.contains(pos, dimension));
+    }
+
+    public boolean removeMiningWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
+        NationWorksite nearest = worksites.stream()
+                .filter(site -> site.factionId().equals(factionId)
+                        && site.type() == NationWorksite.Type.MINING
+                        && site.contains(pos, dimension))
+                .min(Comparator.comparingLong(site -> {
+                    long dx = (long) site.x() - pos.getX();
+                    long dy = (long) site.y() - pos.getY();
+                    long dz = (long) site.z() - pos.getZ();
+                    return dx * dx + dy * dy + dz * dz;
+                })).orElse(null);
+        if (nearest == null) return false;
+        worksites.remove(nearest);
+        setDirty();
+        return true;
+    }
+
     public Optional<NationFaction> findCitizen(UUID uuid) {
         return factions.values().stream().filter(faction -> faction.hasCitizen(uuid)).findFirst();
     }
