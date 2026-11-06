@@ -174,6 +174,14 @@ public final class NationSavedData extends SavedData {
         return true;
     }
 
+    public boolean recordPhysicalStoneMining(UUID citizen, double amount) {
+        Optional<NationFaction> faction = findCitizen(citizen);
+        if (faction.isEmpty()) return false;
+        faction.get().recordPhysicalStoneMining(amount);
+        setDirty();
+        return true;
+    }
+
     public boolean recordPhysicalFoodHarvest(UUID citizen, double amount) {
         Optional<NationFaction> faction = findCitizen(citizen);
         if (faction.isEmpty()) return false;
