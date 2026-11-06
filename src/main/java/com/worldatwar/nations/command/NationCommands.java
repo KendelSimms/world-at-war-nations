@@ -2,6 +2,7 @@ package com.worldatwar.nations.command;
 
 import com.worldatwar.nations.data.NationFaction;
 import com.worldatwar.nations.data.NationSavedData;
+import com.worldatwar.nations.data.NationRelation;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
@@ -17,6 +18,7 @@ public final class NationCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("wwn")
                 .then(Commands.literal("factions").executes(context -> listFactions(context.getSource())))
+                .then(Commands.literal("diplomacy").executes(context -> listDiplomacy(context.getSource())))
                 .then(Commands.literal("inspect")
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> inspectFaction(context.getSource(), StringArgumentType.getString(context, "id")))))
@@ -38,6 +40,23 @@ public final class NationCommands {
             source.sendSuccess(() -> Component.literal(line), false);
         }
         return factions.size();
+    }
+
+    private static int listDiplomacy(CommandSourceStack source) {
+        var relations = NationSavedData.get(source.getServer()).relations().stream()
+                .sorted(Comparator.comparing(NationRelation::firstFactionId)
+                        .thenComparing(NationRelation::secondFactionId)).toList();
+        source.sendSuccess(() -> Component.literal("[World At War: Nations] Diplomatic relations: " + relations.size()), false);
+        if (relations.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No relations recorded yet. Load at least two civilizations of the same dimension."), false);
+            return 0;
+        }
+        for (NationRelation relation : relations) {
+            String line = relation.firstFactionId() + " <-> " + relation.secondFactionId()
+                    + " | " + relation.status().name() + " | opinion " + String.format(Locale.ROOT, "%.1f", relation.score());
+            source.sendSuccess(() -> Component.literal(line), false);
+        }
+        return relations.size();
     }
 
     private static int inspectFaction(CommandSourceStack source, String id) {
