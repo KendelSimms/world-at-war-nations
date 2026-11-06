@@ -101,8 +101,26 @@ public final class NationSavedData extends SavedData {
                     if (first.stability() < 25 || second.stability() < 25) change -= 0.5;
                 }
                 relation.adjust(change);
+
+                // Friendly civilizations exchange only genuine surplus; no stockpile can go negative.
+                if (relation.status() == NationRelationStatus.TRADE_PACT
+                        || relation.status() == NationRelationStatus.ALLIANCE) {
+                    tradeSurplus(first, second);
+                    tradeSurplus(second, first);
+                }
             }
         }
+    }
+
+    private static void tradeSurplus(NationFaction exporter, NationFaction importer) {
+        double food = exporter.exportSurplusFood();
+        double wood = exporter.exportSurplusWood();
+        double stone = exporter.exportSurplusStone();
+        double iron = exporter.exportSurplusIron();
+        importer.receiveFood(food);
+        importer.receiveWood(wood);
+        importer.receiveStone(stone);
+        importer.receiveIron(iron);
     }
 
     private static String relationKey(String first, String second) {
