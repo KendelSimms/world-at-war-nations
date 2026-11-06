@@ -136,19 +136,35 @@ public final class NationEvents {
     }
 
     /**
-     * Keeps assigned guards near their civilization's founding settlement center.
-     * This is defensive positioning only; guards do not yet engage hostile factions.
+     * Keeps assigned guards near their settlement and rotates them through four patrol points.
+     * Patrols are defensive positioning only; guards do not yet engage hostile factions.
      */
     private static void guideGuardToSettlement(ServerLevel level, Villager guard, NationFaction faction) {
         BlockPos current = guard.blockPosition();
-        long dx = (long) faction.centerX() - current.getX();
-        long dz = (long) faction.centerZ() - current.getZ();
-        if (dx * dx + dz * dz <= 256L) return;
+        long centerDx = (long) faction.centerX() - current.getX();
+        long centerDz = (long) faction.centerZ() - current.getZ();
 
-        BlockPos rallyPoint = new BlockPos(faction.centerX(), current.getY(), faction.centerZ());
-        if (level.hasChunkAt(rallyPoint)) {
-            guard.getNavigation().moveTo(faction.centerX() + 0.5, current.getY(),
-                    faction.centerZ() + 0.5, 0.75);
+        int phase = (int) Math.floorMod(level.getGameTime() / 1200L
+                + guard.getUUID().hashCode(), 4L);
+        int patrolRadius = 10;
+        int targetX = faction.centerX();
+        int targetZ = faction.centerZ();
+        if (centerDx * centerDx + centerDz * centerDz <= 256L) {
+            switch (phase) {
+                case 0 -> targetX += patrolRadius;
+                case 1 -> targetZ += patrolRadius;
+                case 2 -> targetX -= patrolRadius;
+                default -> targetZ -= patrolRadius;
+            }
+        }
+
+        long dx = (long) targetX - current.getX();
+        long dz = (long) targetZ - current.getZ();
+        if (dx * dx + dz * dz <= 16L) return;
+
+        BlockPos patrolPoint = new BlockPos(targetX, current.getY(), targetZ);
+        if (level.hasChunkAt(patrolPoint)) {
+            guard.getNavigation().moveTo(targetX + 0.5, current.getY(), targetZ + 0.5, 0.75);
         }
     }
 
