@@ -58,6 +58,13 @@ public final class NationCommands {
                 + " | Prosperity " + String.format(Locale.ROOT, "%.1f", f.prosperity())
                 + " | Stability " + String.format(Locale.ROOT, "%.1f", f.stability())
                 + " | Military readiness " + String.format(Locale.ROOT, "%.1f", f.militaryReadiness())), false);
+        source.sendSuccess(() -> Component.literal("Workforce — Farmers " + f.workersIn(com.worldatwar.nations.data.NationJob.FARMER)
+                + " | Guards " + f.workersIn(com.worldatwar.nations.data.NationJob.GUARD)
+                + " | Lumberjacks " + f.workersIn(com.worldatwar.nations.data.NationJob.LUMBERJACK)
+                + " | Miners " + f.workersIn(com.worldatwar.nations.data.NationJob.MINER)
+                + " | Craftsmen " + f.workersIn(com.worldatwar.nations.data.NationJob.CRAFTSMAN)
+                + " | Scholars " + f.workersIn(com.worldatwar.nations.data.NationJob.SCHOLAR)
+                + " | General " + f.workersIn(com.worldatwar.nations.data.NationJob.GENERAL_WORKER)), false);
         source.sendSuccess(() -> Component.literal("Projects — Farms " + f.farms() + " | Lumber camps " + f.lumberCamps()
                 + " | Quarries " + f.quarries() + " | Workshops " + f.workshops() + " | Barracks " + f.barracks()), false);
         source.sendSuccess(() -> Component.literal("Recent autonomous decisions:"), false);
