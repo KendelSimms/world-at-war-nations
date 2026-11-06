@@ -103,6 +103,32 @@ public final class NationFaction {
             index++;
         }
     }
+    /** Transfers a small amount of surplus stock to a partner; returns the quantity moved. */
+    double exportSurplusFood() {
+        double amount = Math.min(3.0, Math.max(0.0, food - Math.max(30.0, population() * 7.0)));
+        food -= amount;
+        return amount;
+    }
+    void receiveFood(double amount) { food = clamp(food + amount, 0, MAX_STOCKPILE); }
+    double exportSurplusWood() {
+        double amount = Math.min(2.0, Math.max(0.0, wood - 20.0));
+        wood -= amount;
+        return amount;
+    }
+    void receiveWood(double amount) { wood = clamp(wood + amount, 0, MAX_STOCKPILE); }
+    double exportSurplusStone() {
+        double amount = Math.min(2.0, Math.max(0.0, stone - 18.0));
+        stone -= amount;
+        return amount;
+    }
+    void receiveStone(double amount) { stone = clamp(stone + amount, 0, MAX_STOCKPILE); }
+    double exportSurplusIron() {
+        double amount = Math.min(1.0, Math.max(0.0, iron - 5.0));
+        iron -= amount;
+        return amount;
+    }
+    void receiveIron(double amount) { iron = clamp(iron + amount, 0, MAX_STOCKPILE); }
+
     public boolean hasCitizen(UUID uuid) { return citizens.contains(uuid); }
 
     /** One abstract national planning/economy step. No world blocks are changed in this alpha. */
