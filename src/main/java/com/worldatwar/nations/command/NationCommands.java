@@ -27,6 +27,12 @@ public final class NationCommands {
                         .then(Commands.literal("farm")
                                 .then(Commands.argument("id", StringArgumentType.word())
                                         .executes(context -> addFarmWorksite(context.getSource(), StringArgumentType.getString(context, "id")))))
+                        .then(Commands.literal("mine")
+                                .then(Commands.argument("id", StringArgumentType.word())
+                                        .executes(context -> addMiningWorksite(context.getSource(), StringArgumentType.getString(context, "id")))))
+                        .then(Commands.literal("remove-mine")
+                                .then(Commands.argument("id", StringArgumentType.word())
+                                        .executes(context -> removeMiningWorksite(context.getSource(), StringArgumentType.getString(context, "id")))))
                         .then(Commands.literal("remove-farm")
                                 .then(Commands.argument("id", StringArgumentType.word())
                                         .executes(context -> removeFarmWorksite(context.getSource(), StringArgumentType.getString(context, "id")))))
@@ -97,6 +103,52 @@ public final class NationCommands {
         source.sendSuccess(() -> Component.literal("Registered farm worksite for " + faction.name()
                 + " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
                 + ". Farmers may tend crops only within 8 blocks of this marker."), true);
+        return 1;
+    }
+
+    private static int addMiningWorksite(CommandSourceStack source, String id) {
+        NationSavedData data = NationSavedData.get(source.getServer());
+        NationFaction faction = data.find(id).orElse(null);
+        if (faction == null) {
+            source.sendFailure(Component.literal("Unknown faction ID. Use /wwn factions."));
+            return 0;
+        }
+        String dimension = source.getLevel().dimension().location().toString();
+        if (!faction.dimension().equals(dimension)) {
+            source.sendFailure(Component.literal("You must place this worksite in the faction's dimension."));
+            return 0;
+        }
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(source.getPosition());
+        double dx = pos.getX() - faction.centerX();
+        double dz = pos.getZ() - faction.centerZ();
+        if (dx * dx + dz * dz > (double) faction.territoryRadius() * faction.territoryRadius()) {
+            source.sendFailure(Component.literal("That position is outside the faction's estimated influence radius."));
+            return 0;
+        }
+        if (!data.addMiningWorksite(faction, dimension, pos)) {
+            source.sendFailure(Component.literal("A mining worksite already exists at that position."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Registered mining worksite for " + faction.name()
+                + " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
+                + ". This marks the permitted mining area; miners do not mine blocks yet."), true);
+        return 1;
+    }
+
+    private static int removeMiningWorksite(CommandSourceStack source, String id) {
+        NationSavedData data = NationSavedData.get(source.getServer());
+        NationFaction faction = data.find(id).orElse(null);
+        if (faction == null) {
+            source.sendFailure(Component.literal("Unknown faction ID. Use /wwn factions."));
+            return 0;
+        }
+        net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.containing(source.getPosition());
+        String dimension = source.getLevel().dimension().location().toString();
+        if (!data.removeMiningWorksite(id, dimension, pos)) {
+            source.sendFailure(Component.literal("No mining worksite for this faction is within 8 blocks of your position."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Removed the nearest mining worksite for " + faction.name() + "."), true);
         return 1;
     }
 
@@ -250,6 +302,8 @@ public final class NationCommands {
         source.sendSuccess(() -> Component.literal("/wwn territory — view estimated influence radii and potential overlaps"), false);
         source.sendSuccess(() -> Component.literal("/wwn worksite lumber <factionId> — designate a lumber worksite at your position"), false);
         source.sendSuccess(() -> Component.literal("/wwn worksite farm <factionId> — designate a farm worksite at your position"), false);
+        source.sendSuccess(() -> Component.literal("/wwn worksite mine <factionId> — designate a mining area at your position"), false);
+        source.sendSuccess(() -> Component.literal("/wwn worksite remove-mine <factionId> — remove the nearest mining worksite"), false);
         source.sendSuccess(() -> Component.literal("/wwn worksite remove-farm <factionId> — remove the nearest farm worksite"), false);
         source.sendSuccess(() -> Component.literal("/wwn worksite list <factionId> — list a faction's worksites"), false);
         source.sendSuccess(() -> Component.literal("/wwn worksite remove <factionId> — remove the nearest worksite within 8 blocks"), false);
