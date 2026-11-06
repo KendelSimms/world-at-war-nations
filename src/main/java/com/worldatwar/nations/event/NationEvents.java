@@ -196,6 +196,35 @@ public final class NationEvents {
             targetZ = faction.centerZ() + (int) Math.round(Math.sin(angle) * patrolRadius);
         }
 
+        // Completed homes and service buildings become fallback posts when no threat is active.
+        // Guards are distributed over the same ordered post list to avoid crowding one structure.
+        NationSavedData data = NationSavedData.get(level.getServer());
+        String dimension = level.dimension().location().toString();
+        java.util.List<BlockPos> assetPosts = data.worksites().stream()
+                .filter(site -> site.factionId().equals(faction.id()) && site.dimension().equals(dimension))
+                .filter(site -> switch (site.type()) {
+                    case BUILD -> data.isBuildSiteCompleted(faction.id(), dimension,
+                            new BlockPos(site.x(), site.y(), site.z()));
+                    case STORAGE, WORKSHOP -> data.isInfrastructureSiteCompleted(faction.id(), dimension,
+                            new BlockPos(site.x(), site.y(), site.z()), site.type());
+                    default -> false;
+                })
+                .map(site -> new BlockPos(site.x(), site.y(), site.z()))
+                .filter(level::hasChunkAt)
+                .sorted(java.util.Comparator.comparingLong(post -> {
+                    long px = (long) post.getX() - faction.centerX();
+                    long pz = (long) post.getZ() - faction.centerZ();
+                    return px * px + pz * pz;
+                }))
+                .toList();
+        if (!assetPosts.isEmpty()) {
+            BlockPos assignedPost = assetPosts.get(guardSlot % assetPosts.size());
+            if (centerDx * centerDx + centerDz * centerDz <= 256L) {
+                targetX = assignedPost.getX();
+                targetZ = assignedPost.getZ();
+            }
+        }
+
         long dx = (long) targetX - current.getX();
         long dz = (long) targetZ - current.getZ();
         if (dx * dx + dz * dz <= 16L) return;
