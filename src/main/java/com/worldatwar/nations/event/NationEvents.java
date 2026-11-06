@@ -26,6 +26,7 @@ public final class NationEvents {
     private static final long FARM_WORK_INTERVAL_TICKS = 200L;
     private static final int FARM_WORK_RADIUS = 4;
     private static final int LUMBER_WORK_RADIUS = 6;
+    private static final int MINING_WORK_RADIUS = 4;
 
     private NationEvents() {}
 
@@ -70,6 +71,7 @@ public final class NationEvents {
                     NationJob job = faction.jobOf(villager.getUUID());
                     if (job == NationJob.FARMER) harvestNearbyCrop(level, villager, faction, data);
                     else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, faction, data);
+                    else if (job == NationJob.MINER) harvestNearbyIronOre(level, villager, faction, data);
                 }
             }
         }
@@ -105,6 +107,39 @@ public final class NationEvents {
             }
         }
         return false;
+    }
+
+    /**
+     * A loaded miner removes at most one exposed iron ore block per work interval,
+     * and only inside a designated mining worksite. No tunneling or wall removal.
+     */
+    private static void harvestNearbyIronOre(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
+        BlockPos origin = villager.blockPosition();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dy = -2; dy <= 2; dy++) {
+            for (int dx = -MINING_WORK_RADIUS; dx <= MINING_WORK_RADIUS; dx++) {
+                for (int dz = -MINING_WORK_RADIUS; dz <= MINING_WORK_RADIUS; dz++) {
+                    cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
+                    BlockState state = level.getBlockState(cursor);
+                    if (!state.is(BlockTags.IRON_ORES)
+                            || !data.isMiningWorksite(faction.id(), level.dimension().location().toString(), cursor)
+                            || !hasAdjacentAir(level, cursor)) continue;
+                    if (level.destroyBlock(cursor, true)) {
+                        data.recordPhysicalIronMining(villager.getUUID(), 1.0);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean hasAdjacentAir(ServerLevel level, BlockPos pos) {
+        return level.getBlockState(pos.above()).isAir()
+                || level.getBlockState(pos.below()).isAir()
+                || level.getBlockState(pos.north()).isAir()
+                || level.getBlockState(pos.south()).isAir()
+                || level.getBlockState(pos.east()).isAir()
+                || level.getBlockState(pos.west()).isAir();
     }
 
     /** A loaded farmer harvests and replants one mature crop near its current position. */
