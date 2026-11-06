@@ -192,8 +192,13 @@ public final class NationEvents {
         Monster threat = level.getEntitiesOfClass(Monster.class, patrolArea,
                         candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard))
                 .stream()
-                .filter(candidate -> threatensFactionAsset(level, candidate, faction, data))
-                .min(java.util.Comparator.comparingDouble(guard::distanceToSqr))
+                .map(candidate -> new ThreatAssessment(candidate,
+                        distanceToFactionAsset(level, candidate, faction, data)))
+                .filter(assessment -> Double.isFinite(assessment.assetDistanceSquared()))
+                .min(java.util.Comparator
+                        .comparingDouble(ThreatAssessment::assetDistanceSquared)
+                        .thenComparingDouble(assessment -> guard.distanceToSqr(assessment.threat())))
+                .map(ThreatAssessment::threat)
                 .orElse(null);
         if (threat == null) return false;
 
@@ -205,23 +210,35 @@ public final class NationEvents {
         return true;
     }
 
-    private static boolean threatensFactionAsset(ServerLevel level, Monster threat,
+    private record ThreatAssessment(Monster threat, double assetDistanceSquared) {}
+
+    /**
+     * Measures distance to the nearest threatened faction asset.
+     * Only citizens and worksites within their respective danger radii count as active assets.
+     */
+    private static double distanceToFactionAsset(ServerLevel level, Monster threat,
             NationFaction faction, NationSavedData data) {
+        double nearest = Double.POSITIVE_INFINITY;
         AABB citizenArea = threat.getBoundingBox().inflate(12.0);
-        boolean nearCitizen = level.getEntitiesOfClass(Villager.class, citizenArea,
-                        villager -> villager.isAlive()
-                                && data.findCitizen(villager.getUUID())
-                                        .map(owner -> owner.id().equals(faction.id()))
-                                        .orElse(false))
-                .size() > 0;
-        if (nearCitizen) return true;
+        for (Villager villager : level.getEntitiesOfClass(Villager.class, citizenArea,
+                candidate -> candidate.isAlive()
+                        && data.findCitizen(candidate.getUUID())
+                                .map(owner -> owner.id().equals(faction.id()))
+                                .orElse(false))) {
+            nearest = Math.min(nearest, threat.distanceToSqr(villager));
+        }
 
         String dimension = level.dimension().location().toString();
         BlockPos threatPos = threat.blockPosition();
-        return data.worksites().stream()
-                .anyMatch(site -> site.factionId().equals(faction.id())
-                        && site.dimension().equals(dimension)
-                        && site.contains(threatPos, dimension));
+        for (NationWorksite site : data.worksites()) {
+            if (!site.factionId().equals(faction.id()) || !site.dimension().equals(dimension)
+                    || !site.contains(threatPos, dimension)) continue;
+            double dx = threat.getX() - (site.x() + 0.5);
+            double dy = threat.getY() - site.y();
+            double dz = threat.getZ() - (site.z() + 0.5);
+            nearest = Math.min(nearest, dx * dx + dy * dy + dz * dz);
+        }
+        return nearest;
     }
 
     /**
