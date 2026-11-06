@@ -19,6 +19,7 @@ public final class NationSavedData extends SavedData {
     private static final int SETTLEMENT_CELL_SIZE = 192;
     private static final double MERGE_RADIUS_SQUARED = 112.0 * 112.0;
     private final Map<String, NationFaction> factions = new LinkedHashMap<>();
+    private final Map<String, NationRelation> relations = new LinkedHashMap<>();
 
     public static NationSavedData get(MinecraftServer server) {
         ServerLevel overworld = server.overworld();
@@ -26,6 +27,7 @@ public final class NationSavedData extends SavedData {
     }
 
     public Collection<NationFaction> factions() { return factions.values(); }
+    public Collection<NationRelation> relations() { return relations.values(); }
     public Optional<NationFaction> find(String id) { return Optional.ofNullable(factions.get(id)); }
     public Optional<NationFaction> findCitizen(UUID uuid) {
         return factions.values().stream().filter(faction -> faction.hasCitizen(uuid)).findFirst();
@@ -70,7 +72,41 @@ public final class NationSavedData extends SavedData {
             faction.simulate();
             changed |= before > 0;
         }
-        if (changed) setDirty();
+        updateDiplomacy();
+        if (changed || !relations.isEmpty()) setDirty();
+    }
+
+    private void updateDiplomacy() {
+        java.util.List<NationFaction> active = factions.values().stream()
+                .filter(faction -> faction.population() > 0).toList();
+        for (int i = 0; i < active.size(); i++) {
+            NationFaction first = active.get(i);
+            for (int j = i + 1; j < active.size(); j++) {
+                NationFaction second = active.get(j);
+                if (!first.dimension().equals(second.dimension())) continue;
+                String key = relationKey(first.id(), second.id());
+                NationRelation relation = relations.get(key);
+                if (relation == null) {
+                    double initial = first.kind() == second.kind() ? 12.0 : -38.0;
+                    relation = new NationRelation(first.id(), second.id(), initial);
+                    relations.put(key, relation);
+                }
+                double change;
+                if (first.kind() != second.kind()) {
+                    double combinedReadiness = first.militaryReadiness() + second.militaryReadiness();
+                    change = combinedReadiness >= 60 ? -2.0 : -0.35;
+                    if (first.prosperity() > 75 && second.prosperity() > 75) change += 0.15;
+                } else {
+                    change = first.prosperity() > 60 && second.prosperity() > 60 ? 0.8 : 0.2;
+                    if (first.stability() < 25 || second.stability() < 25) change -= 0.5;
+                }
+                relation.adjust(change);
+            }
+        }
+    }
+
+    private static String relationKey(String first, String second) {
+        return first.compareTo(second) <= 0 ? first + "|" + second : second + "|" + first;
     }
 
     private static double distanceSquared(int x1, int z1, int x2, int z2) {
@@ -92,6 +128,9 @@ public final class NationSavedData extends SavedData {
         ListTag list = new ListTag();
         for (NationFaction faction : factions.values()) list.add(faction.save());
         tag.put("Factions", list);
+        ListTag relationList = new ListTag();
+        for (NationRelation relation : relations.values()) relationList.add(relation.save());
+        tag.put("Relations", relationList);
         return tag;
     }
 
@@ -101,6 +140,11 @@ public final class NationSavedData extends SavedData {
         for (int i = 0; i < list.size(); i++) {
             NationFaction faction = NationFaction.load(list.getCompound(i));
             data.factions.put(faction.id(), faction);
+        }
+        ListTag relationList = tag.getList("Relations", Tag.TAG_COMPOUND);
+        for (int i = 0; i < relationList.size(); i++) {
+            NationRelation relation = NationRelation.load(relationList.getCompound(i));
+            data.relations.put(relationKey(relation.firstFactionId(), relation.secondFactionId()), relation);
         }
         return data;
     }
