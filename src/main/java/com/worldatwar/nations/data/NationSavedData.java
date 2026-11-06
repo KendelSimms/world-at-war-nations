@@ -59,6 +59,14 @@ public final class NationSavedData extends SavedData {
         return faction;
     }
 
+    public boolean recordPhysicalWoodHarvest(UUID citizen, double amount) {
+        Optional<NationFaction> faction = findCitizen(citizen);
+        if (faction.isEmpty()) return false;
+        faction.get().recordPhysicalWoodHarvest(amount);
+        setDirty();
+        return true;
+    }
+
     public boolean recordPhysicalFoodHarvest(UUID citizen, double amount) {
         Optional<NationFaction> faction = findCitizen(citizen);
         if (faction.isEmpty()) return false;
