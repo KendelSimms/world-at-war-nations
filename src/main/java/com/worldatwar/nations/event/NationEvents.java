@@ -69,14 +69,14 @@ public final class NationEvents {
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
                     if (job == NationJob.FARMER) harvestNearbyCrop(level, villager, data);
-                    else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, data);
+                    else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, faction, data);
                 }
             }
         }
     }
 
-    /** A loaded lumberjack removes one nearby tree log with nearby leaves and stores timber. */
-    private static void harvestNearbyLog(ServerLevel level, Villager villager, NationSavedData data) {
+    /** A loaded lumberjack removes one nearby tree log only inside its faction's designated lumber worksite. */
+    private static void harvestNearbyLog(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
         BlockPos origin = villager.blockPosition();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int dy = -1; dy <= 3; dy++) {
@@ -84,7 +84,8 @@ public final class NationEvents {
                 for (int dz = -LUMBER_WORK_RADIUS; dz <= LUMBER_WORK_RADIUS; dz++) {
                     cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
                     BlockState state = level.getBlockState(cursor);
-                    if (!state.is(BlockTags.LOGS) || !hasNearbyLeaves(level, cursor)) continue;
+                    if (!state.is(BlockTags.LOGS) || !hasNearbyLeaves(level, cursor)
+                            || !data.isLumberWorksite(faction.id(), level.dimension().location().toString(), cursor)) continue;
                     level.destroyBlock(cursor, false);
                     data.recordPhysicalWoodHarvest(villager.getUUID(), 1.0);
                     return;
