@@ -19,6 +19,7 @@ public final class NationCommands {
         dispatcher.register(Commands.literal("wwn")
                 .then(Commands.literal("factions").executes(context -> listFactions(context.getSource())))
                 .then(Commands.literal("diplomacy").executes(context -> listDiplomacy(context.getSource())))
+                .then(Commands.literal("territory").executes(context -> listTerritory(context.getSource())))
                 .then(Commands.literal("inspect")
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .executes(context -> inspectFaction(context.getSource(), StringArgumentType.getString(context, "id")))))
@@ -39,6 +40,31 @@ public final class NationCommands {
                     faction.technology(), faction.settlementTier(), faction.id());
             source.sendSuccess(() -> Component.literal(line), false);
         }
+        return factions.size();
+    }
+
+
+    private static int listTerritory(CommandSourceStack source) {
+        var factions = NationSavedData.get(source.getServer()).factions().stream()
+                .sorted(Comparator.comparing(NationFaction::name)).toList();
+        source.sendSuccess(() -> Component.literal("[World At War: Nations] Estimated settlement influence: " + factions.size()), false);
+        for (NationFaction faction : factions) {
+            String line = String.format(Locale.ROOT, "- %s | %s | center %d, %d | influence radius %d blocks",
+                    faction.name(), faction.dimension(), faction.centerX(), faction.centerZ(), faction.territoryRadius());
+            source.sendSuccess(() -> Component.literal(line), false);
+            for (NationFaction other : factions) {
+                if (faction.id().compareTo(other.id()) >= 0 || !faction.dimension().equals(other.dimension())) continue;
+                double dx = faction.centerX() - other.centerX();
+                double dz = faction.centerZ() - other.centerZ();
+                double distance = Math.sqrt(dx * dx + dz * dz);
+                if (distance <= faction.territoryRadius() + other.territoryRadius()) {
+                    String overlap = String.format(Locale.ROOT,
+                            "  * Potentially overlapping claim with %s (centers %.0f blocks apart)", other.name(), distance);
+                    source.sendSuccess(() -> Component.literal(overlap), false);
+                }
+            }
+        }
+        source.sendSuccess(() -> Component.literal("Influence is a strategic estimate, not a physical border or enforced land claim."), false);
         return factions.size();
     }
 
