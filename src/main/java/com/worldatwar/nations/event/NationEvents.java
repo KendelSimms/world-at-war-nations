@@ -71,10 +71,54 @@ public final class NationEvents {
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
+                    if (job == NationJob.CRAFTSMAN || job == NationJob.GENERAL_WORKER) {
+                        constructSmallShelter(level, villager, faction, data);
+                    }
                     if (job == NationJob.FARMER && !harvestNearbyCrop(level, villager, faction, data)) plantNearbyWheat(level, villager, faction, data);
                     else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, faction, data);
                     else if (job == NationJob.MINER && !harvestNearbyIronOre(level, villager, faction, data)) harvestNearbyStone(level, villager, faction, data);
                 }
+            }
+        }
+    }
+
+    /**
+     * Builds one small timber shelter at a reserved build marker.
+     * It only places blocks into a completely clear, supported footprint and never replaces terrain or structures.
+     */
+    private static void constructSmallShelter(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
+        BlockPos base = villager.blockPosition();
+        String dimension = level.dimension().location().toString();
+        if (!data.isBuildWorksite(faction.id(), dimension, base)) return;
+
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                BlockPos ground = base.offset(dx, -1, dz);
+                BlockPos lower = base.offset(dx, 0, dz);
+                BlockPos upper = base.offset(dx, 1, dz);
+                BlockPos roof = base.offset(dx, 2, dz);
+                if (!level.hasChunkAt(ground) || !level.hasChunkAt(lower)
+                        || !level.hasChunkAt(upper) || !level.hasChunkAt(roof)) return;
+                if (level.getBlockState(ground).isAir()
+                        || !level.getBlockState(lower).isAir()
+                        || !level.getBlockState(upper).isAir()
+                        || !level.getBlockState(roof).isAir()) return;
+            }
+        }
+
+        if (!data.spendWoodForConstruction(faction.id(), 24.0)) return;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                boolean perimeter = Math.abs(dx) == 1 || Math.abs(dz) == 1;
+                if (perimeter) {
+                    BlockPos lower = base.offset(dx, 0, dz);
+                    BlockPos upper = base.offset(dx, 1, dz);
+                    // Leave a two-block doorway on the south-facing wall.
+                    if (!(dz == 1 && dx == 0)) level.setBlock(lower, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+                    level.setBlock(upper, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+                }
+                level.setBlock(base.offset(dx, 2, dz), Blocks.OAK_PLANKS.defaultBlockState(), 3);
             }
         }
     }
