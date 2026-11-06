@@ -102,7 +102,7 @@ public final class NationCommands {
         }
         source.sendSuccess(() -> Component.literal("Registered farm worksite for " + faction.name()
                 + " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
-                + ". Farmers may tend crops only within 8 blocks of this marker."), true);
+                + ". Farmers may harvest mature crops and plant wheat seeds within 8 blocks of this marker."), true);
         return 1;
     }
 
