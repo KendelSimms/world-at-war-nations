@@ -227,7 +227,14 @@ public final class NationEvents {
      */
     private static void defendIllagerAgainstMonsters(ServerLevel level, AbstractIllager illager,
             NationFaction faction, NationSavedData data) {
-        if (illager.getTarget() != null && illager.getTarget().isAlive()) return;
+        LivingEntity currentTarget = illager.getTarget();
+        if (currentTarget != null && currentTarget.isAlive()) {
+            // Re-check registered monster targets so a new peace treaty or alliance takes effect.
+            if (!(currentTarget instanceof Monster currentMonster)
+                    || diplomaticThreatPriority(currentMonster, faction, data) < 3) return;
+            illager.setTarget(null);
+        }
+
         AABB defenseArea = illager.getBoundingBox().inflate(16.0);
         Monster threat = level.getEntitiesOfClass(Monster.class, defenseArea,
                         candidate -> candidate != illager && candidate.isAlive() && !candidate.isAlliedTo(illager)
