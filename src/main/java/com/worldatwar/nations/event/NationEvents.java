@@ -231,31 +231,37 @@ public final class NationEvents {
         AABB defenseArea = illager.getBoundingBox().inflate(16.0);
         Monster threat = level.getEntitiesOfClass(Monster.class, defenseArea,
                         candidate -> candidate != illager && candidate.isAlive() && !candidate.isAlliedTo(illager)
-                                && isDiplomaticallyHostile(candidate, faction, data))
+                                && diplomaticThreatPriority(candidate, faction, data) < 3)
                 .stream()
-                .min(java.util.Comparator.comparingDouble(illager::distanceToSqr))
+                .min(java.util.Comparator
+                        .comparingInt((Monster candidate) -> diplomaticThreatPriority(candidate, faction, data))
+                        .thenComparingDouble(illager::distanceToSqr))
                 .orElse(null);
         if (threat != null) illager.setTarget(threat);
     }
 
     /**
-     * Unregistered monsters remain local threats. Registered civilizations are only valid
-     * targets when their bilateral relationship has deteriorated to RIVALRY or WAR.
-     * Same-faction members and peaceful, trading, allied, or merely tense factions are ignored.
+     * WAR targets take priority over RIVALRY targets, regardless of small distance differences.
+     * Unregistered monsters remain local threats after registered diplomatic enemies are considered.
+     * Same-faction, allied, peaceful, trading, and merely tense factions are ignored.
+     *
+     * @return 0 for WAR, 1 for RIVALRY, 2 for unregistered threats, or 3 for non-hostile factions.
      */
-    private static boolean isDiplomaticallyHostile(Monster candidate, NationFaction defender,
+    private static int diplomaticThreatPriority(Monster candidate, NationFaction defender,
             NationSavedData data) {
         NationFaction attacker = data.findCitizen(candidate.getUUID()).orElse(null);
-        if (attacker == null) return true;
-        if (attacker.id().equals(defender.id())) return false;
+        if (attacker == null) return 2;
+        if (attacker.id().equals(defender.id())) return 3;
         return data.relations().stream()
                 .filter(relation -> (relation.firstFactionId().equals(defender.id())
                                 && relation.secondFactionId().equals(attacker.id()))
                         || (relation.firstFactionId().equals(attacker.id())
                                 && relation.secondFactionId().equals(defender.id())))
                 .map(NationRelation::status)
-                .anyMatch(status -> status == NationRelationStatus.RIVALRY
-                        || status == NationRelationStatus.WAR);
+                .mapToInt(status -> status == NationRelationStatus.WAR ? 0
+                        : status == NationRelationStatus.RIVALRY ? 1 : 3)
+                .min()
+                .orElse(3);
     }
 
     /**
