@@ -20,6 +20,7 @@ public final class NationSavedData extends SavedData {
     private static final double MERGE_RADIUS_SQUARED = 112.0 * 112.0;
     private final Map<String, NationFaction> factions = new LinkedHashMap<>();
     private final Map<String, NationRelation> relations = new LinkedHashMap<>();
+    private final java.util.List<NationWorksite> worksites = new java.util.ArrayList<>();
 
     public static NationSavedData get(MinecraftServer server) {
         ServerLevel overworld = server.overworld();
@@ -29,6 +30,21 @@ public final class NationSavedData extends SavedData {
     public Collection<NationFaction> factions() { return factions.values(); }
     public Collection<NationRelation> relations() { return relations.values(); }
     public Optional<NationFaction> find(String id) { return Optional.ofNullable(factions.get(id)); }
+    public java.util.List<NationWorksite> worksites() { return java.util.List.copyOf(worksites); }
+    public boolean addLumberWorksite(NationFaction faction, String dimension, net.minecraft.core.BlockPos pos) {
+        if (!faction.dimension().equals(dimension)) return false;
+        boolean exists = worksites.stream().anyMatch(site -> site.factionId().equals(faction.id())
+                && site.type() == NationWorksite.Type.LUMBER && site.x() == pos.getX()
+                && site.y() == pos.getY() && site.z() == pos.getZ());
+        if (exists) return false;
+        worksites.add(new NationWorksite(faction.id(), dimension, pos.getX(), pos.getY(), pos.getZ(), NationWorksite.Type.LUMBER));
+        setDirty();
+        return true;
+    }
+    public boolean isLumberWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
+        return worksites.stream().anyMatch(site -> site.factionId().equals(factionId)
+                && site.type() == NationWorksite.Type.LUMBER && site.contains(pos, dimension));
+    }
     public Optional<NationFaction> findCitizen(UUID uuid) {
         return factions.values().stream().filter(faction -> faction.hasCitizen(uuid)).findFirst();
     }
@@ -165,6 +181,9 @@ public final class NationSavedData extends SavedData {
         ListTag relationList = new ListTag();
         for (NationRelation relation : relations.values()) relationList.add(relation.save());
         tag.put("Relations", relationList);
+        ListTag worksiteList = new ListTag();
+        for (NationWorksite worksite : worksites) worksiteList.add(worksite.save());
+        tag.put("Worksites", worksiteList);
         return tag;
     }
 
@@ -180,6 +199,8 @@ public final class NationSavedData extends SavedData {
             NationRelation relation = NationRelation.load(relationList.getCompound(i));
             data.relations.put(relationKey(relation.firstFactionId(), relation.secondFactionId()), relation);
         }
+        ListTag worksiteList = tag.getList("Worksites", Tag.TAG_COMPOUND);
+        for (int i = 0; i < worksiteList.size(); i++) data.worksites.add(NationWorksite.load(worksiteList.getCompound(i)));
         return data;
     }
 }
