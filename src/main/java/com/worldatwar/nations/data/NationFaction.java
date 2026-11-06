@@ -143,6 +143,15 @@ public final class NationFaction {
     }
 
     /** Adds stone credited by a physical miner working a designated quarry site. */
+    /** Pays for one physical construction project from the national timber stockpile. */
+    public boolean spendWoodForConstruction(double amount) {
+        if (amount < 0 || wood < amount) return false;
+        wood -= amount;
+        prosperity = clamp(prosperity + 0.1, 0, 100);
+        note("Funded a physical settlement construction project");
+        return true;
+    }
+
     public void recordPhysicalStoneMining(double amount) {
         stone = clamp(stone + Math.max(0.0, amount), 0, MAX_STOCKPILE);
         prosperity = clamp(prosperity + 0.03, 0, 100);
