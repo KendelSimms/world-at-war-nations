@@ -6,6 +6,8 @@ import net.minecraft.nbt.Tag;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -20,6 +22,7 @@ public final class NationFaction {
     private final int centerX;
     private final int centerZ;
     private final Set<UUID> citizens = new HashSet<>();
+    private final Map<UUID, NationJob> citizenJobs = new java.util.HashMap<>();
     private final List<String> recentDecisions = new ArrayList<>();
     private double food = 45, wood = 18, stone = 12, iron = 2, knowledge;
     private double prosperity = 50, stability = 75, militaryReadiness = 5;
@@ -59,8 +62,47 @@ public final class NationFaction {
     public NationPolicy policy() { return policy; }
     public Set<UUID> citizens() { return citizens; }
     public List<String> recentDecisions() { return recentDecisions; }
-    public boolean addCitizen(UUID uuid) { return citizens.add(uuid); }
-    public boolean removeCitizen(UUID uuid) { return citizens.remove(uuid); }
+    public boolean addCitizen(UUID uuid) {
+        boolean added = citizens.add(uuid);
+        if (added) citizenJobs.put(uuid, NationJob.GENERAL_WORKER);
+        return added;
+    }
+    public boolean removeCitizen(UUID uuid) {
+        citizenJobs.remove(uuid);
+        return citizens.remove(uuid);
+    }
+    public NationJob jobOf(UUID uuid) { return citizenJobs.getOrDefault(uuid, NationJob.GENERAL_WORKER); }
+    public int workersIn(NationJob job) {
+        int count = 0;
+        for (NationJob assigned : citizenJobs.values()) if (assigned == job) count++;
+        return count;
+    }
+
+    /** Reassigns occupations from national needs; this is a strategic assignment, not yet a physical NPC work AI. */
+    private void assignJobs(int people) {
+        citizenJobs.keySet().retainAll(citizens);
+        List<UUID> ordered = new ArrayList<>(citizens);
+        ordered.sort(UUID::compareTo);
+        int index = 0;
+        int farmersNeeded = Math.max(1, (int) Math.ceil(people * (policy == NationPolicy.FOOD_SECURITY ? 0.40 : 0.25)));
+        int guardsNeeded = barracks > 0 ? Math.max(1, Math.min(people / 3, barracks * 2)) : 0;
+        int lumberNeeded = lumberCamps > 0 ? Math.max(1, people / 5) : 0;
+        int minersNeeded = quarries > 0 ? Math.max(1, people / 6) : 0;
+        int craftersNeeded = workshops > 0 ? Math.max(1, people / 6) : 0;
+        int scholarsNeeded = policy == NationPolicy.RESEARCH ? Math.max(1, people / 8) : 0;
+        for (UUID citizen : ordered) {
+            NationJob job;
+            if (index < farmersNeeded) job = NationJob.FARMER;
+            else if (index < farmersNeeded + guardsNeeded) job = NationJob.GUARD;
+            else if (index < farmersNeeded + guardsNeeded + lumberNeeded) job = NationJob.LUMBERJACK;
+            else if (index < farmersNeeded + guardsNeeded + lumberNeeded + minersNeeded) job = NationJob.MINER;
+            else if (index < farmersNeeded + guardsNeeded + lumberNeeded + minersNeeded + craftersNeeded) job = NationJob.CRAFTSMAN;
+            else if (index < farmersNeeded + guardsNeeded + lumberNeeded + minersNeeded + craftersNeeded + scholarsNeeded) job = NationJob.SCHOLAR;
+            else job = NationJob.GENERAL_WORKER;
+            citizenJobs.put(citizen, job);
+            index++;
+        }
+    }
     public boolean hasCitizen(UUID uuid) { return citizens.contains(uuid); }
 
     /** One abstract national planning/economy step. No world blocks are changed in this alpha. */
@@ -79,6 +121,7 @@ public final class NationFaction {
         knowledge = clamp(knowledge + people * 0.03 + workshops * 0.30, 0, MAX_STOCKPILE);
         updateWelfare(people);
         updatePolicy(people);
+        assignJobs(people);
         makeIndependentDecision(people);
         updateSettlementTier();
     }
@@ -201,7 +244,7 @@ public final class NationFaction {
         ListTag citizensTag = new ListTag();
         for (UUID citizen : citizens) {
             CompoundTag citizenTag = new CompoundTag();
-            citizenTag.putUUID("UUID", citizen); citizensTag.add(citizenTag);
+            citizenTag.putUUID("UUID", citizen); citizenTag.putString("Job", jobOf(citizen).name()); citizensTag.add(citizenTag);
         }
         tag.put("Citizens", citizensTag);
         ListTag decisionsTag = new ListTag();
@@ -234,7 +277,14 @@ public final class NationFaction {
         ListTag citizensTag = tag.getList("Citizens", Tag.TAG_COMPOUND);
         for (int i = 0; i < citizensTag.size(); i++) {
             CompoundTag citizenTag = citizensTag.getCompound(i);
-            if (citizenTag.hasUUID("UUID")) faction.citizens.add(citizenTag.getUUID("UUID"));
+            if (citizenTag.hasUUID("UUID")) {
+                UUID uuid = citizenTag.getUUID("UUID");
+                faction.citizens.add(uuid);
+                if (citizenTag.contains("Job", Tag.TAG_STRING)) {
+                    try { faction.citizenJobs.put(uuid, NationJob.valueOf(citizenTag.getString("Job"))); }
+                    catch (IllegalArgumentException ignored) { faction.citizenJobs.put(uuid, NationJob.GENERAL_WORKER); }
+                } else faction.citizenJobs.put(uuid, NationJob.GENERAL_WORKER);
+            }
         }
         faction.recentDecisions.clear();
         ListTag decisionsTag = tag.getList("RecentDecisions", Tag.TAG_STRING);
