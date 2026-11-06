@@ -139,6 +139,18 @@ public final class NationSavedData extends SavedData {
         return true;
     }
 
+    public boolean isBuildWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
+        return worksites.stream().anyMatch(site -> site.factionId().equals(factionId)
+                && site.type() == NationWorksite.Type.BUILD && site.contains(pos, dimension));
+    }
+
+    public boolean spendWoodForConstruction(String factionId, double amount) {
+        NationFaction faction = factions.get(factionId);
+        if (faction == null || !faction.spendWoodForConstruction(amount)) return false;
+        setDirty();
+        return true;
+    }
+
     public boolean removeBuildWorksite(String factionId, String dimension, net.minecraft.core.BlockPos pos) {
         NationWorksite nearest = worksites.stream()
                 .filter(site -> site.factionId().equals(factionId)
