@@ -136,6 +136,12 @@ public final class NationFaction {
 
     public boolean hasCitizen(UUID uuid) { return citizens.contains(uuid); }
 
+    /** Adds iron credited by a physical miner working a designated ore site. */
+    public void recordPhysicalIronMining(double amount) {
+        iron = clamp(iron + Math.max(0.0, amount), 0, MAX_STOCKPILE);
+        prosperity = clamp(prosperity + 0.04, 0, 100);
+    }
+
     /** One abstract national planning/economy step. No world blocks are changed in this alpha. */
     /** Adds food produced by a physical worker action in the loaded world. */
     public void recordPhysicalFoodHarvest(double amount) {
