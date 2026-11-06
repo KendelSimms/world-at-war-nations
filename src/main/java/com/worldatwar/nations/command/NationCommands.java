@@ -78,8 +78,9 @@ public final class NationCommands {
             return 0;
         }
         for (NationRelation relation : relations) {
-            String line = relation.firstFactionId() + " <-> " + relation.secondFactionId()
-                    + " | " + relation.status().name() + " | opinion " + String.format(Locale.ROOT, "%.1f", relation.score());
+            String firstName = NationSavedData.get(source.getServer()).find(relation.firstFactionId()).map(NationFaction::name).orElse(relation.firstFactionId());
+            String secondName = NationSavedData.get(source.getServer()).find(relation.secondFactionId()).map(NationFaction::name).orElse(relation.secondFactionId());
+            String line = firstName + " <-> " + secondName + " | " + relation.status().name() + " | opinion " + String.format(Locale.ROOT, "%.1f", relation.score());
             source.sendSuccess(() -> Component.literal(line), false);
         }
         return relations.size();
@@ -94,7 +95,7 @@ public final class NationCommands {
         NationFaction f = optional.get();
         source.sendSuccess(() -> Component.literal("=== " + f.name() + " ==="), false);
         source.sendSuccess(() -> Component.literal("Type: " + f.kind() + " | Dimension: " + f.dimension()), false);
-        source.sendSuccess(() -> Component.literal("Center: " + f.centerX() + ", " + f.centerZ() + " | Citizens: " + f.population()), false);
+        source.sendSuccess(() -> Component.literal("Center: " + f.centerX() + ", " + f.centerZ() + " | Citizens: " + f.population() + " | Estimated influence radius: " + f.territoryRadius() + " blocks"), false);
         source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT,
                 "Stockpiles — Food %.1f | Wood %.1f | Stone %.1f | Iron %.1f | Knowledge %.1f",
                 f.food(), f.wood(), f.stone(), f.iron(), f.knowledge())), false);
@@ -121,6 +122,8 @@ public final class NationCommands {
         source.sendSuccess(() -> Component.literal("World At War: Nations commands:"), false);
         source.sendSuccess(() -> Component.literal("/wwn factions — list discovered civilizations"), false);
         source.sendSuccess(() -> Component.literal("/wwn inspect <id> — view a civilization's economy and decisions"), false);
+        source.sendSuccess(() -> Component.literal("/wwn diplomacy — view relations between civilizations"), false);
+        source.sendSuccess(() -> Component.literal("/wwn territory — view estimated influence radii and potential overlaps"), false);
         source.sendSuccess(() -> Component.literal("Civilizations simulate autonomously every 60 in-game seconds. No player orders are required."), false);
         return 1;
     }
