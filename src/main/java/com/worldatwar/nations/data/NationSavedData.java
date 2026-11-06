@@ -189,6 +189,8 @@ public final class NationSavedData extends SavedData {
                 })).orElse(null);
         if (nearest == null) return false;
         worksites.remove(nearest);
+        completedBuildSites.remove(buildSiteKey(factionId, dimension,
+                new net.minecraft.core.BlockPos(nearest.x(), nearest.y(), nearest.z())));
         setDirty();
         return true;
     }
