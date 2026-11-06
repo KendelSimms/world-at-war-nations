@@ -59,6 +59,14 @@ public final class NationSavedData extends SavedData {
         return faction;
     }
 
+    public boolean recordPhysicalFoodHarvest(UUID citizen, double amount) {
+        Optional<NationFaction> faction = findCitizen(citizen);
+        if (faction.isEmpty()) return false;
+        faction.get().recordPhysicalFoodHarvest(amount);
+        setDirty();
+        return true;
+    }
+
     public void removeCitizen(UUID uuid) {
         boolean changed = false;
         for (NationFaction faction : factions.values()) changed |= faction.removeCitizen(uuid);
