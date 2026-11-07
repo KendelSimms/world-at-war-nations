@@ -87,7 +87,7 @@ public final class NationEvents {
                     if (job == NationJob.GUARD) {
                         boolean responding = respondToSettlementThreat(level, villager, faction, data);
                         if (!responding) guideGuardToSettlement(level, villager, faction);
-                        alertNearbyGolems(level, villager);
+                        alertNearbyGolems(level, villager, faction, data);
                     }
                     if (job == NationJob.SCHOLAR) studyAtWorkshop(level, villager, faction, data);
                     if (job == NationJob.CRAFTSMAN || job == NationJob.GENERAL_WORKER) {
@@ -439,12 +439,15 @@ public final class NationEvents {
      * Settlement guards alert nearby iron golems when hostile mobs approach.
      * Existing golem targets are preserved; this does not make villagers attack.
      */
-    private static void alertNearbyGolems(ServerLevel level, Villager guard) {
+    private static void alertNearbyGolems(ServerLevel level, Villager guard, NationFaction faction, NationSavedData data) {
         AABB threatArea = guard.getBoundingBox().inflate(16.0);
         Monster threat = level.getEntitiesOfClass(Monster.class, threatArea,
-                        candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard))
+                        candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard)
+                                && diplomaticThreatPriority(candidate, faction, data) < 3)
                 .stream()
-                .min(java.util.Comparator.comparingDouble(guard::distanceToSqr))
+                .min(java.util.Comparator
+                        .comparingInt((Monster candidate) -> diplomaticThreatPriority(candidate, faction, data))
+                        .thenComparingDouble(guard::distanceToSqr))
                 .orElse(null);
         if (threat == null) return;
 
