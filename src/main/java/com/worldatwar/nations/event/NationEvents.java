@@ -223,10 +223,28 @@ public final class NationEvents {
                 }))
                 .toList();
         if (!assetPosts.isEmpty()) {
-            BlockPos assignedPost = assetPosts.get(guardSlot % assetPosts.size());
+            int assignedPostIndex = guardSlot % assetPosts.size();
+            BlockPos assignedPost = assetPosts.get(assignedPostIndex);
             if (centerDx * centerDx + centerDz * centerDz <= 256L) {
-                targetX = assignedPost.getX();
-                targetZ = assignedPost.getZ();
+                // Guards assigned to the same building take separate perimeter positions.
+                // The shared UUID-sorted roster makes each guard's local slot deterministic.
+                java.util.List<Villager> postGuards = guards.stream()
+                        .filter(candidate -> {
+                            int candidateIndex = guards.indexOf(candidate);
+                            return candidateIndex % assetPosts.size() == assignedPostIndex;
+                        })
+                        .toList();
+                int postSlot = 0;
+                for (int i = 0; i < postGuards.size(); i++) {
+                    if (postGuards.get(i).getUUID().equals(guard.getUUID())) {
+                        postSlot = i;
+                        break;
+                    }
+                }
+                double postAngle = (Math.PI * 2.0 * postSlot) / Math.max(1, postGuards.size());
+                double postRadius = 4.0;
+                targetX = assignedPost.getX() + (int) Math.round(Math.cos(postAngle) * postRadius);
+                targetZ = assignedPost.getZ() + (int) Math.round(Math.sin(postAngle) * postRadius);
             }
         }
 
