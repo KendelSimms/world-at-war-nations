@@ -466,7 +466,14 @@ public final class NationEvents {
         AABB defenseArea = guard.getBoundingBox().inflate(24.0);
         for (IronGolem golem : level.getEntitiesOfClass(IronGolem.class, defenseArea,
                 IronGolem::isAlive)) {
-            if (golem.getTarget() == null || !golem.getTarget().isAlive()) {
+            LivingEntity existingTarget = golem.getTarget();
+            // Do not preserve an obsolete diplomatic enemy after peace is established.
+            if (existingTarget instanceof Monster existingMonster
+                    && diplomaticThreatPriority(existingMonster, faction, data) >= 3) {
+                golem.setTarget(null);
+                existingTarget = null;
+            }
+            if (existingTarget == null || !existingTarget.isAlive()) {
                 golem.setTarget(threat);
             }
         }
