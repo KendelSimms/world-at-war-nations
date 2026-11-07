@@ -364,6 +364,8 @@ public final class NationEvents {
                 .orElse(null);
         if (threat == null) return false;
 
+        // Keep a threatened civilian away from its normal work assignment this interval.
+        // A destination is chosen relative to the actual hostile mob, not to faction borders.
         // Move away from the nearest threat instead of blindly routing toward the settlement center,
         // which could be on the far side of the hostile mob.
         BlockPos current = villager.blockPosition();
