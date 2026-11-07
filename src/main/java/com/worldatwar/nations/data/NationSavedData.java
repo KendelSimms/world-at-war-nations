@@ -29,6 +29,17 @@ public final class NationSavedData extends SavedData {
         return overworld.getDataStorage().computeIfAbsent(NationSavedData::load, NationSavedData::new, DATA_NAME);
     }
 
+    /** Marks physical garrison expenditures as persistent, including refunded failures. */
+    public boolean fundGarrisonDefender(NationFaction faction) {
+        if (!factions.containsKey(faction.id()) || !faction.fundGarrisonDefender()) return false;
+        setDirty();
+        return true;
+    }
+    public void refundGarrisonDefender(NationFaction faction) {
+        if (!factions.containsKey(faction.id())) return;
+        faction.refundGarrisonDefender();
+        setDirty();
+    }
     public Collection<NationFaction> factions() { return factions.values(); }
     public Collection<NationRelation> relations() { return relations.values(); }
     public Optional<NationFaction> find(String id) { return Optional.ofNullable(factions.get(id)); }
