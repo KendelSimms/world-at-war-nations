@@ -42,6 +42,21 @@ public final class NationEvents {
     public static void onEntityJoin(EntityJoinLevelEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         Entity entity = event.getEntity();
+        if (entity instanceof IronGolem golem && golem.isAlive()) {
+            // Reconcile owned defenders as their chunks load, without generating chunks
+            // or counting unrelated village/player golems as military recruits.
+            NationSavedData data = NationSavedData.get(level.getServer());
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() == FactionKind.VILLAGER
+                        && dimension.equals(faction.dimension())
+                        && golem.getTags().contains("wan_garrison_" + faction.id())) {
+                    data.registerGarrisonDefender(faction, golem.getUUID());
+                    break;
+                }
+            }
+            return;
+        }
         FactionKind kind;
         if (entity instanceof Villager) {
             kind = FactionKind.VILLAGER;
