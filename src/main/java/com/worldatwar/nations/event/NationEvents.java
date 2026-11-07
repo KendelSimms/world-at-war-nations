@@ -513,6 +513,13 @@ public final class NationEvents {
                     default -> false;
                 })
                 .map(site -> new BlockPos(site.x(), site.y(), site.z()))
+                // Defensive patrols must remain local even if a faction has remote worksites.
+                // Restrict posts to the settlement perimeter before assigning guard slots.
+                .filter(post -> {
+                    long px = (long) post.getX() - faction.centerX();
+                    long pz = (long) post.getZ() - faction.centerZ();
+                    return px * px + pz * pz <= 32L * 32L;
+                })
                 .filter(level::hasChunkAt)
                 .sorted(java.util.Comparator.comparingLong(post -> {
                     long px = (long) post.getX() - faction.centerX();
