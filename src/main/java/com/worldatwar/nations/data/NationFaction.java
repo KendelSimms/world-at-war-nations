@@ -75,6 +75,12 @@ public final class NationFaction {
                 && stability >= 55.0 && gameTick >= lastGrowthTick
                 && gameTick - lastGrowthTick >= 24000L;
     }
+    public void refundFailedGrowth(long gameTick) {
+        if (lastGrowthTick == gameTick) {
+            food = clamp(food + 12.0, 0, MAX_STOCKPILE);
+            lastGrowthTick = 0L;
+        }
+    }
     public boolean fundGrowth(long gameTick) {
         if (!canFundGrowth(gameTick)) return false;
         food -= 12.0;
