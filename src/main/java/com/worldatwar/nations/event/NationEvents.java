@@ -441,14 +441,20 @@ public final class NationEvents {
      * Existing golem targets are preserved; this does not make villagers attack.
      */
     private static void alertNearbyGolems(ServerLevel level, Villager guard, NationFaction faction, NationSavedData data) {
-        AABB threatArea = guard.getBoundingBox().inflate(16.0);
+        AABB threatArea = guard.getBoundingBox().inflate(24.0);
         Monster threat = level.getEntitiesOfClass(Monster.class, threatArea,
                         candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard)
                                 && diplomaticThreatPriority(candidate, faction, data) < 3)
                 .stream()
+                .map(candidate -> new ThreatAssessment(candidate,
+                        distanceToFactionAsset(level, candidate, faction, data)))
+                .filter(assessment -> Double.isFinite(assessment.assetDistanceSquared()))
                 .min(java.util.Comparator
-                        .comparingInt((Monster candidate) -> diplomaticThreatPriority(candidate, faction, data))
-                        .thenComparingDouble(guard::distanceToSqr))
+                        .comparingInt((ThreatAssessment assessment) ->
+                                diplomaticThreatPriority(assessment.threat(), faction, data))
+                        .thenComparingDouble(ThreatAssessment::assetDistanceSquared)
+                        .thenComparingDouble(assessment -> guard.distanceToSqr(assessment.threat())))
+                .map(ThreatAssessment::threat)
                 .orElse(null);
         if (threat == null) return;
 
