@@ -70,6 +70,7 @@ public final class NationEvents {
             NationSavedData data = NationSavedData.get(event.getServer());
             data.simulateAll();
             planShelterExpansion(event.getServer(), data);
+            planEconomicInfrastructure(event.getServer(), data);
         }
         if (gameTime > 0 && gameTime % FARM_WORK_INTERVAL_TICKS == 0) {
             NationSavedData data = NationSavedData.get(event.getServer());
@@ -140,6 +141,57 @@ public final class NationEvents {
                             BlockPos base = origin.offset(dx, 0, dz);
                             if (!safeShelterSite(level, data, dimension, base)) continue;
                             planned = data.addBuildWorksite(faction, dimension, base);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Plans physical service stations when the faction can afford them.
+     * This does not double-count the abstract workshop economy: a station is a
+     * physical work destination, not an additional abstract production multiplier.
+     */
+    private static void planEconomicInfrastructure(net.minecraft.server.MinecraftServer server, NationSavedData data) {
+        for (ServerLevel level : server.getAllLevels()) {
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() != FactionKind.VILLAGER || !faction.dimension().equals(dimension)
+                        || faction.population() < 3) continue;
+                NationWorksite.Type type = null;
+                if (faction.wood() >= 20.0 && faction.food() >= 35.0) {
+                    boolean hasStorage = data.worksites().stream().anyMatch(site ->
+                            site.factionId().equals(faction.id()) && site.type() == NationWorksite.Type.STORAGE);
+                    if (!hasStorage) type = NationWorksite.Type.STORAGE;
+                }
+                if (type == null && faction.wood() >= 30.0 && faction.technology() >= 2) {
+                    boolean hasWorkshop = data.worksites().stream().anyMatch(site ->
+                            site.factionId().equals(faction.id()) && site.type() == NationWorksite.Type.WORKSHOP);
+                    if (!hasWorkshop) type = NationWorksite.Type.WORKSHOP;
+                }
+                if (type == null) continue;
+                Villager builder = null;
+                for (Entity entity : level.getAllEntities()) {
+                    if (entity instanceof Villager villager && villager.isAlive()
+                            && faction.citizens().contains(villager.getUUID())
+                            && (faction.jobOf(villager.getUUID()) == NationJob.CRAFTSMAN
+                                || faction.jobOf(villager.getUUID()) == NationJob.GENERAL_WORKER)) {
+                        builder = villager;
+                        break;
+                    }
+                }
+                if (builder == null) continue;
+                BlockPos origin = builder.blockPosition();
+                boolean planned = false;
+                for (int radius = 6; radius <= 14 && !planned; radius += 4) {
+                    for (int dx = -radius; dx <= radius && !planned; dx += 4) {
+                        for (int dz = -radius; dz <= radius && !planned; dz += 4) {
+                            BlockPos site = origin.offset(dx, 0, dz);
+                            if (!safeShelterSite(level, data, dimension, site)) continue;
+                            planned = type == NationWorksite.Type.STORAGE
+                                    ? data.addStorageWorksite(faction, dimension, site)
+                                    : data.addWorkshopWorksite(faction, dimension, site);
                         }
                     }
                 }
