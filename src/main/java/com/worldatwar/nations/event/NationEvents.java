@@ -71,6 +71,7 @@ public final class NationEvents {
             data.simulateAll();
             planShelterExpansion(event.getServer(), data);
             planEconomicInfrastructure(event.getServer(), data);
+            growHousedSettlements(event.getServer(), data, gameTime);
         }
         if (gameTime > 0 && gameTime % FARM_WORK_INTERVAL_TICKS == 0) {
             NationSavedData data = NationSavedData.get(event.getServer());
@@ -153,6 +154,58 @@ public final class NationEvents {
      * This does not double-count the abstract workshop economy: a station is a
      * physical work destination, not an additional abstract production multiplier.
      */
+    /**
+     * Creates at most one real baby villager per eligible faction per Minecraft day.
+     * Only existing, loaded adult citizens may act as a parent; no virtual citizens
+     * are added to the roster. EntityJoinLevelEvent registers successful spawns.
+     */
+    private static void growHousedSettlements(net.minecraft.server.MinecraftServer server,
+            NationSavedData data, long gameTime) {
+        for (ServerLevel level : server.getAllLevels()) {
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() != FactionKind.VILLAGER || !faction.dimension().equals(dimension)
+                        || !faction.canFundGrowth(gameTime)) continue;
+                Villager parent = null;
+                for (Entity entity : level.getAllEntities()) {
+                    if (entity instanceof Villager villager && villager.isAlive() && !villager.isBaby()
+                            && faction.citizens().contains(villager.getUUID())) {
+                        parent = villager;
+                        break;
+                    }
+                }
+                if (parent == null) continue;
+                BlockPos origin = parent.blockPosition();
+                for (int dx = -3; dx <= 3; dx++) {
+                    boolean spawned = false;
+                    for (int dz = -3; dz <= 3; dz++) {
+                        BlockPos pos = origin.offset(dx, 0, dz);
+                        BlockPos below = pos.below();
+                        if (!level.hasChunkAt(pos) || !level.hasChunkAt(below)
+                                || !level.getBlockState(below).isSolidRender(level, below)
+                                || !level.getBlockState(pos).isAir()
+                                || !level.getBlockState(pos.above()).isAir()) continue;
+                        AABB volume = new AABB(pos.getX(), pos.getY(), pos.getZ(),
+                                pos.getX() + 1, pos.getY() + 2, pos.getZ() + 1);
+                        if (!level.getEntities((Entity) null, volume).isEmpty()) continue;
+                        Villager child = net.minecraft.world.entity.EntityType.VILLAGER.create(level);
+                        if (child == null) continue;
+                        child.setBaby(true);
+                        child.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                                parent.getYRot(), 0.0F);
+                        if (!data.fundPopulationGrowth(faction, gameTime)) return;
+                        if (!level.addFreshEntity(child)) {
+                            data.refundFailedPopulationGrowth(faction, gameTime);
+                        }
+                        spawned = true;
+                        break;
+                    }
+                    if (spawned) break;
+                }
+            }
+        }
+    }
+
     private static void planEconomicInfrastructure(net.minecraft.server.MinecraftServer server, NationSavedData data) {
         for (ServerLevel level : server.getAllLevels()) {
             String dimension = level.dimension().location().toString();
