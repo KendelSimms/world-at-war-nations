@@ -461,8 +461,6 @@ public final class NationEvents {
                         .thenComparingDouble(assessment -> guard.distanceToSqr(assessment.threat())))
                 .map(ThreatAssessment::threat)
                 .orElse(null);
-        if (threat == null) return;
-
         AABB defenseArea = guard.getBoundingBox().inflate(24.0);
         for (IronGolem golem : level.getEntitiesOfClass(IronGolem.class, defenseArea,
                 IronGolem::isAlive)) {
@@ -473,7 +471,7 @@ public final class NationEvents {
                 golem.setTarget(null);
                 existingTarget = null;
             }
-            if (existingTarget == null || !existingTarget.isAlive()) {
+            if (threat != null && (existingTarget == null || !existingTarget.isAlive())) {
                 golem.setTarget(threat);
             }
         }
