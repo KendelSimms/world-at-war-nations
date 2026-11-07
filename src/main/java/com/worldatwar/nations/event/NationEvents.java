@@ -82,7 +82,8 @@ public final class NationEvents {
                         if (illagerFaction != null) defendIllagerAgainstMonsters(level, illager, illagerFaction, data);
                         continue;
                     }
-                    if (!(loaded instanceof Villager villager) || !villager.isAlive()) continue;
+                    // Children are registered citizens but cannot perform adult jobs or fight.
+                    if (!(loaded instanceof Villager villager) || !villager.isAlive() || villager.isBaby()) continue;
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
@@ -126,7 +127,7 @@ public final class NationEvents {
                 if (pending) continue;
                 Villager builder = null;
                 for (Entity entity : level.getAllEntities()) {
-                    if (entity instanceof Villager villager && villager.isAlive()
+                    if (entity instanceof Villager villager && villager.isAlive() && !villager.isBaby()
                             && faction.citizens().contains(villager.getUUID())
                             && (faction.jobOf(villager.getUUID()) == NationJob.CRAFTSMAN
                                 || faction.jobOf(villager.getUUID()) == NationJob.GENERAL_WORKER)) {
@@ -232,7 +233,7 @@ public final class NationEvents {
                 if (type == null) continue;
                 Villager builder = null;
                 for (Entity entity : level.getAllEntities()) {
-                    if (entity instanceof Villager villager && villager.isAlive()
+                    if (entity instanceof Villager villager && villager.isAlive() && !villager.isBaby()
                             && faction.citizens().contains(villager.getUUID())
                             && (faction.jobOf(villager.getUUID()) == NationJob.CRAFTSMAN
                                 || faction.jobOf(villager.getUUID()) == NationJob.GENERAL_WORKER)) {
