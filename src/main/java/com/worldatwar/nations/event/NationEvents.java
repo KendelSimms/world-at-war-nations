@@ -349,6 +349,11 @@ public final class NationEvents {
                     && !data.isBuildSiteCompleted(faction.id(), dimension, anchor)) continue;
             if ((site.type() == NationWorksite.Type.STORAGE || site.type() == NationWorksite.Type.WORKSHOP)
                     && !data.isInfrastructureSiteCompleted(faction.id(), dimension, anchor, site.type())) continue;
+            // The physical site must still be present to count as an asset.
+            if (site.type() == NationWorksite.Type.STORAGE
+                    && (!level.hasChunkAt(anchor) || !level.getBlockState(anchor).is(Blocks.CHEST))) continue;
+            if (site.type() == NationWorksite.Type.WORKSHOP
+                    && (!level.hasChunkAt(anchor) || !level.getBlockState(anchor).is(Blocks.CRAFTING_TABLE))) continue;
             double dx = threat.getX() - (site.x() + 0.5);
             double dy = threat.getY() - site.y();
             double dz = threat.getZ() - (site.z() + 0.5);
