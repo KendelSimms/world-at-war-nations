@@ -67,7 +67,9 @@ public final class NationEvents {
         if (event.phase != TickEvent.Phase.END) return;
         long gameTime = event.getServer().overworld().getGameTime();
         if (gameTime > 0 && gameTime % SIMULATION_INTERVAL_TICKS == 0) {
-            NationSavedData.get(event.getServer()).simulateAll();
+            NationSavedData data = NationSavedData.get(event.getServer());
+            data.simulateAll();
+            planShelterExpansion(event.getServer(), data);
         }
         if (gameTime > 0 && gameTime % FARM_WORK_INTERVAL_TICKS == 0) {
             NationSavedData data = NationSavedData.get(event.getServer());
@@ -101,6 +103,73 @@ public final class NationEvents {
                 }
             }
         }
+    }
+
+    /**
+     * Plans at most one new shelter per settlement per strategic tick. Only loaded,
+     * unobstructed ground is considered; this never generates chunks or overwrites blocks.
+     * Construction itself remains the responsibility of an assigned worker.
+     */
+    private static void planShelterExpansion(net.minecraft.server.MinecraftServer server, NationSavedData data) {
+        for (ServerLevel level : server.getAllLevels()) {
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() != FactionKind.VILLAGER || !faction.dimension().equals(dimension)
+                        || faction.housingShortfall() <= 0 || faction.wood() < 23.0) continue;
+                boolean pending = data.worksites().stream().anyMatch(site ->
+                        site.factionId().equals(faction.id()) && site.type() == NationWorksite.Type.BUILD
+                        && !data.isBuildSiteCompleted(faction.id(), dimension,
+                                new BlockPos(site.x(), site.y(), site.z())));
+                if (pending) continue;
+                Villager builder = null;
+                for (Entity entity : level.getAllEntities()) {
+                    if (entity instanceof Villager villager && villager.isAlive()
+                            && faction.citizens().contains(villager.getUUID())
+                            && (faction.jobOf(villager.getUUID()) == NationJob.CRAFTSMAN
+                                || faction.jobOf(villager.getUUID()) == NationJob.GENERAL_WORKER)) {
+                        builder = villager;
+                        break;
+                    }
+                }
+                if (builder == null) continue;
+                BlockPos origin = builder.blockPosition();
+                boolean planned = false;
+                for (int radius = 6; radius <= 14 && !planned; radius += 4) {
+                    for (int dx = -radius; dx <= radius && !planned; dx += 4) {
+                        for (int dz = -radius; dz <= radius && !planned; dz += 4) {
+                            BlockPos base = origin.offset(dx, 0, dz);
+                            if (!safeShelterSite(level, data, dimension, base)) continue;
+                            planned = data.addBuildWorksite(faction, dimension, base);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean safeShelterSite(ServerLevel level, NationSavedData data,
+            String dimension, BlockPos base) {
+        if (base.getY() <= level.getMinBuildHeight() + 1
+                || base.getY() + 3 >= level.getMaxBuildHeight()) return false;
+        for (NationWorksite site : data.worksites()) {
+            if (!site.dimension().equals(dimension)) continue;
+            long dx = (long) site.x() - base.getX();
+            long dz = (long) site.z() - base.getZ();
+            if (dx * dx + dz * dz < 36L) return false;
+        }
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                BlockPos ground = base.offset(dx, -1, dz);
+                if (!level.hasChunkAt(ground) || !level.getBlockState(ground).isSolidRender(level, ground))
+                    return false;
+                for (int dy = 0; dy <= 2; dy++) {
+                    BlockPos pos = base.offset(dx, dy, dz);
+                    if (!level.hasChunkAt(pos) || !level.getBlockState(pos).isAir()) return false;
+                }
+            }
+        }
+        return level.getEntities((Entity) null,
+                new AABB(base.offset(-1, 0, -1), base.offset(2, 3, 2))).isEmpty();
     }
 
     /**
