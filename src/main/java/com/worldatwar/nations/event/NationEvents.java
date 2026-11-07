@@ -355,6 +355,9 @@ public final class NationEvents {
             if ((site.type() == NationWorksite.Type.STORAGE || site.type() == NationWorksite.Type.WORKSHOP)
                     && !data.isInfrastructureSiteCompleted(faction.id(), dimension, anchor, site.type())) continue;
             // The physical site must still be present to count as an asset.
+            if (site.type() == NationWorksite.Type.BUILD
+                    && (!level.hasChunkAt(anchor)
+                            || !level.getBlockState(anchor.above(2)).is(Blocks.OAK_PLANKS))) continue;
             if (site.type() == NationWorksite.Type.STORAGE
                     && (!level.hasChunkAt(anchor) || !level.getBlockState(anchor).is(Blocks.CHEST))) continue;
             if (site.type() == NationWorksite.Type.WORKSHOP
