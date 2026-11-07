@@ -69,6 +69,7 @@ public final class NationEvents {
         if (gameTime > 0 && gameTime % SIMULATION_INTERVAL_TICKS == 0) {
             NationSavedData data = NationSavedData.get(event.getServer());
             data.simulateAll();
+            deployVillageGarrisons(event.getServer(), data);
             planShelterExpansion(event.getServer(), data);
             planEconomicInfrastructure(event.getServer(), data);
             growHousedSettlements(event.getServer(), data, gameTime);
@@ -103,6 +104,58 @@ public final class NationEvents {
                     if (job == NationJob.FARMER && !harvestNearbyCrop(level, villager, faction, data)) plantNearbyWheat(level, villager, faction, data);
                     else if (job == NationJob.LUMBERJACK) harvestNearbyLog(level, villager, faction, data);
                     else if (job == NationJob.MINER && !harvestNearbyIronOre(level, villager, faction, data)) harvestNearbyStone(level, villager, faction, data);
+                }
+            }
+        }
+    }
+
+    /**
+     * Deploys one tagged physical iron golem per funded barracks, using only loaded
+     * settlement chunks. This is defensive recruitment, not offensive faction warfare.
+     */
+    private static void deployVillageGarrisons(net.minecraft.server.MinecraftServer server, NationSavedData data) {
+        for (ServerLevel level : server.getAllLevels()) {
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() != FactionKind.VILLAGER || !dimension.equals(faction.dimension())
+                        || faction.barracks() <= 0 || faction.population() < 3) continue;
+                String ownershipTag = "wan_garrison_" + faction.id();
+                int active = 0;
+                Villager recruiter = null;
+                for (Entity entity : level.getAllEntities()) {
+                    if (entity instanceof IronGolem golem && golem.isAlive()
+                            && golem.getTags().contains(ownershipTag)) active++;
+                    if (recruiter == null && entity instanceof Villager villager
+                            && villager.isAlive() && !villager.isBaby()
+                            && faction.citizens().contains(villager.getUUID())) recruiter = villager;
+                }
+                if (recruiter == null || active >= Math.min(2, faction.barracks())) continue;
+                BlockPos origin = recruiter.blockPosition();
+                boolean placed = false;
+                for (int dx = -3; dx <= 3 && !placed; dx++) {
+                    for (int dz = -3; dz <= 3; dz++) {
+                        BlockPos pos = origin.offset(dx, 0, dz);
+                        if (!level.hasChunkAt(pos) || !level.hasChunkAt(pos.below())
+                                || !level.getBlockState(pos.below()).isSolidRender(level, pos.below())
+                                || !level.getBlockState(pos).isAir()
+                                || !level.getBlockState(pos.above()).isAir()
+                                || !level.getBlockState(pos.above(2)).isAir()) continue;
+                        AABB area = new AABB(pos.getX(), pos.getY(), pos.getZ(),
+                                pos.getX() + 1, pos.getY() + 3, pos.getZ() + 1);
+                        if (!level.getEntities((Entity) null, area).isEmpty()) continue;
+                        IronGolem defender = net.minecraft.world.entity.EntityType.IRON_GOLEM.create(level);
+                        if (defender == null) continue;
+                        defender.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+                        defender.setPlayerCreated(true);
+                        defender.addTag(ownershipTag);
+                        if (!data.fundGarrisonDefender(faction)) return;
+                        if (!level.addFreshEntity(defender)) {
+                            data.refundGarrisonDefender(faction);
+                            continue;
+                        }
+                        placed = true;
+                        break;
+                    }
                 }
             }
         }
