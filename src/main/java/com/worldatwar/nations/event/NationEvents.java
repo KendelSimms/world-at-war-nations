@@ -465,6 +465,8 @@ public final class NationEvents {
         AABB defenseArea = guard.getBoundingBox().inflate(24.0);
         for (IronGolem golem : level.getEntitiesOfClass(IronGolem.class, defenseArea,
                 IronGolem::isAlive)) {
+            // Golems that are already fighting remain assigned unless their target
+            // has become a diplomatic friend or an entity ally.
             LivingEntity existingTarget = golem.getTarget();
             // Do not preserve an obsolete diplomatic enemy after peace is established.
             if (existingTarget instanceof Monster existingMonster
