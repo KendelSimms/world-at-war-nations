@@ -117,7 +117,8 @@ public final class NationEvents {
             String dimension = level.dimension().location().toString();
             for (NationFaction faction : data.factions()) {
                 if (faction.kind() != FactionKind.VILLAGER || !faction.dimension().equals(dimension)
-                        || faction.housingShortfall() <= 0 || faction.wood() < 23.0) continue;
+                        || faction.population() < 2 || faction.population() < faction.housingCapacity()
+                        || faction.wood() < 23.0) continue;
                 boolean pending = data.worksites().stream().anyMatch(site ->
                         site.factionId().equals(faction.id()) && site.type() == NationWorksite.Type.BUILD
                         && !data.isBuildSiteCompleted(faction.id(), dimension,
