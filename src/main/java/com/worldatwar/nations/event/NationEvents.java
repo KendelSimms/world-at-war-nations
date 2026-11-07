@@ -833,13 +833,26 @@ public final class NationEvents {
                 golem.setTarget(null);
                 existingTarget = null;
             }
-            // A guard's alert radius is centered on the guard, not on each defender.
-            // Do not send a garrison golem chasing a target far outside its own post.
-            if (threat != null && golem.distanceToSqr(threat) <= 24.0 * 24.0
+            // Guard-issued orders must stay near the home settlement. A target can
+            // be close to a guard or golem while already outside the defensive zone.
+            // Clear such orders when guards next evaluate this defender; vanilla
+            // autonomous targeting is not fully constrained by this check.
+            if (existingTarget != null && !withinGarrisonDefensePerimeter(existingTarget, faction)) {
+                golem.setTarget(null);
+                existingTarget = null;
+            }
+            if (threat != null && withinGarrisonDefensePerimeter(threat, faction)
+                    && golem.distanceToSqr(threat) <= 24.0 * 24.0
                     && (existingTarget == null || !existingTarget.isAlive())) {
                 golem.setTarget(threat);
             }
         }
+    }
+
+    private static boolean withinGarrisonDefensePerimeter(Entity entity, NationFaction faction) {
+        double dx = entity.getX() - (faction.centerX() + 0.5);
+        double dz = entity.getZ() - (faction.centerZ() + 0.5);
+        return dx * dx + dz * dz <= 32.0 * 32.0;
     }
 
     /**
