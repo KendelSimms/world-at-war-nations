@@ -211,7 +211,9 @@ public final class NationEvents {
                     case BUILD -> data.isBuildSiteCompleted(faction.id(), dimension,
                             new BlockPos(site.x(), site.y(), site.z()))
                             && level.hasChunkAt(new BlockPos(site.x(), site.y(), site.z()))
-                            && level.getBlockState(new BlockPos(site.x(), site.y() + 2, site.z())).is(Blocks.OAK_PLANKS);
+                            && level.getBlockState(new BlockPos(site.x(), site.y() + 2, site.z())).is(Blocks.OAK_PLANKS)
+                            && level.getBlockState(new BlockPos(site.x() - 1, site.y(), site.z())).is(Blocks.OAK_PLANKS)
+                            && level.getBlockState(new BlockPos(site.x() + 1, site.y(), site.z())).is(Blocks.OAK_PLANKS);
                     case STORAGE, WORKSHOP -> data.isInfrastructureSiteCompleted(faction.id(), dimension,
                             new BlockPos(site.x(), site.y(), site.z()), site.type())
                             && level.hasChunkAt(new BlockPos(site.x(), site.y(), site.z()))
