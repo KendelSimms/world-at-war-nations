@@ -31,6 +31,7 @@ public final class NationFaction {
     // Strategic reserve troops are not spawned entities. Housing comes from completed physical shelters.
     private int reserveTroops;
     private long lastGrowthTick;
+    private long lastGarrisonDeploymentTick;
     private int completedShelters;
     private long simulationCount;
     private NationPolicy policy = NationPolicy.BALANCED;
@@ -69,15 +70,20 @@ public final class NationFaction {
     public int barracks() { return barracks; }
     public int reserveTroops() { return reserveTroops; }
     /** Funds one physical defensive iron golem; the caller must refund a failed spawn. */
-    public boolean fundGarrisonDefender() {
+    public boolean fundGarrisonDefender(long gameTick) {
         if (kind != FactionKind.VILLAGER || barracks <= 0 || population() < 3
-                || stability < 40 || iron < 12.0 || food < 35.0) return false;
+                || stability < 40 || iron < 12.0 || food < 35.0
+                || gameTick < lastGarrisonDeploymentTick
+                || gameTick - lastGarrisonDeploymentTick < 24000L) return false;
         iron -= 12.0;
         food -= 8.0;
+        lastGarrisonDeploymentTick = gameTick;
         note("Equipped a physical garrison defender");
         return true;
     }
-    public void refundGarrisonDefender() {
+    public void refundGarrisonDefender(long gameTick) {
+        if (lastGarrisonDeploymentTick != gameTick) return;
+        lastGarrisonDeploymentTick = 0L;
         iron = clamp(iron + 12.0, 0, MAX_STOCKPILE);
         food = clamp(food + 8.0, 0, MAX_STOCKPILE);
     }
@@ -370,6 +376,7 @@ public final class NationFaction {
         tag.putInt("Workshops", workshops); tag.putInt("Barracks", barracks);
         tag.putInt("ReserveTroops", reserveTroops);
         tag.putLong("LastGrowthTick", lastGrowthTick);
+        tag.putLong("LastGarrisonDeploymentTick", lastGarrisonDeploymentTick);
         tag.putInt("CompletedShelters", completedShelters);
         tag.putInt("Technology", technology); tag.putInt("SettlementTier", settlementTier);
         tag.putLong("SimulationCount", simulationCount);
@@ -401,6 +408,7 @@ public final class NationFaction {
         faction.barracks = tag.getInt("Barracks");
         faction.reserveTroops = Math.max(0, tag.getInt("ReserveTroops"));
         faction.lastGrowthTick = Math.max(0L, tag.getLong("LastGrowthTick"));
+        faction.lastGarrisonDeploymentTick = Math.max(0L, tag.getLong("LastGarrisonDeploymentTick"));
         faction.completedShelters = Math.max(0, tag.getInt("CompletedShelters"));
         faction.technology = Math.max(1, tag.getInt("Technology"));
         faction.settlementTier = Math.max(1, tag.getInt("SettlementTier"));
