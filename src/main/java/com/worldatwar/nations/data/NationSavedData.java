@@ -342,6 +342,18 @@ public final class NationSavedData extends SavedData {
         return true;
     }
 
+    public boolean fundPopulationGrowth(NationFaction faction, long gameTick) {
+        if (factions.get(faction.id()) != faction || !faction.fundGrowth(gameTick)) return false;
+        setDirty();
+        return true;
+    }
+
+    public void refundFailedPopulationGrowth(NationFaction faction, long gameTick) {
+        if (factions.get(faction.id()) != faction) return;
+        faction.refundFailedGrowth(gameTick);
+        setDirty();
+    }
+
     public void removeCitizen(UUID uuid) {
         boolean changed = false;
         for (NationFaction faction : factions.values()) changed |= faction.removeCitizen(uuid);
