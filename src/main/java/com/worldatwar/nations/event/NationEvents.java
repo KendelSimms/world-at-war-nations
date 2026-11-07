@@ -798,7 +798,10 @@ public final class NationEvents {
                 golem.setTarget(null);
                 existingTarget = null;
             }
-            if (threat != null && (existingTarget == null || !existingTarget.isAlive())) {
+            // A guard's alert radius is centered on the guard, not on each defender.
+            // Do not send a garrison golem chasing a target far outside its own post.
+            if (threat != null && golem.distanceToSqr(threat) <= 24.0 * 24.0
+                    && (existingTarget == null || !existingTarget.isAlive())) {
                 golem.setTarget(threat);
             }
         }
