@@ -173,9 +173,18 @@ public final class NationEvents {
                         data.registerGarrisonDefender(faction, golem.getUUID());
                     if (recruiter == null && entity instanceof Villager villager
                             && villager.isAlive() && !villager.isBaby()
-                            && faction.citizens().contains(villager.getUUID())) recruiter = villager;
+                            && faction.citizens().contains(villager.getUUID())) {
+                        long dx = (long) villager.blockPosition().getX() - faction.centerX();
+                        long dz = (long) villager.blockPosition().getZ() - faction.centerZ();
+                        if (dx * dx + dz * dz <= 24L * 24L) recruiter = villager;
+                    }
                 }
+                // Only recruit at the home settlement. A citizen working at a distant
+                // outpost must not turn that outpost into an unplanned garrison.
                 if (recruiter == null || faction.garrisonDefenderCount() >= Math.min(2, faction.barracks())) continue;
+                long recruitDx = (long) recruiter.blockPosition().getX() - faction.centerX();
+                long recruitDz = (long) recruiter.blockPosition().getZ() - faction.centerZ();
+                if (recruitDx * recruitDx + recruitDz * recruitDz > 24L * 24L) continue;
                 BlockPos origin = recruiter.blockPosition();
                 boolean placed = false;
                 for (int dx = -3; dx <= 3 && !placed; dx++) {
