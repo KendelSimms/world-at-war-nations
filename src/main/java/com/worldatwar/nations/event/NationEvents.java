@@ -343,6 +343,12 @@ public final class NationEvents {
         for (NationWorksite site : data.worksites()) {
             if (!site.factionId().equals(faction.id()) || !site.dimension().equals(dimension)
                     || !site.contains(threatPos, dimension)) continue;
+            // Ignore inactive building markers: only finished structures are defensive assets.
+            BlockPos anchor = new BlockPos(site.x(), site.y(), site.z());
+            if (site.type() == NationWorksite.Type.BUILD
+                    && !data.isBuildSiteCompleted(faction.id(), dimension, anchor)) continue;
+            if ((site.type() == NationWorksite.Type.STORAGE || site.type() == NationWorksite.Type.WORKSHOP)
+                    && !data.isInfrastructureSiteCompleted(faction.id(), dimension, anchor, site.type())) continue;
             double dx = threat.getX() - (site.x() + 0.5);
             double dy = threat.getY() - site.y();
             double dz = threat.getZ() - (site.z() + 0.5);
