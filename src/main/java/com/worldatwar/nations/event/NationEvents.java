@@ -576,6 +576,14 @@ public final class NationEvents {
                 double postRadius = 4.0;
                 targetX = assignedPost.getX() + (int) Math.round(Math.cos(postAngle) * postRadius);
                 targetZ = assignedPost.getZ() + (int) Math.round(Math.sin(postAngle) * postRadius);
+                // A post can be inside the defense perimeter while its offset guard
+                // slot falls outside it. Fall back to the valid post in that case.
+                long postDx = (long) targetX - faction.centerX();
+                long postDz = (long) targetZ - faction.centerZ();
+                if (postDx * postDx + postDz * postDz > 32L * 32L) {
+                    targetX = assignedPost.getX();
+                    targetZ = assignedPost.getZ();
+                }
             }
         }
 
