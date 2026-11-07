@@ -28,6 +28,13 @@ public final class NationFaction {
     private double prosperity = 50, stability = 75, militaryReadiness = 5;
     private int farms, lumberCamps, quarries, workshops, barracks;
     private int technology = 1, settlementTier = 1;
+    // Strategic reserve troops are not spawned entities. Housing comes from completed physical shelters.
+    private int reserveTroops;
+    private long lastGrowthTick;
+    private long lastGarrisonDeploymentTick;
+    // UUID roster survives chunk unloads and restarts; deaths require explicit reconciliation.
+    private final Set<UUID> garrisonDefenders = new HashSet<>();
+    private int completedShelters;
     private long simulationCount;
     private NationPolicy policy = NationPolicy.BALANCED;
 
@@ -63,6 +70,53 @@ public final class NationFaction {
     public int quarries() { return quarries; }
     public int workshops() { return workshops; }
     public int barracks() { return barracks; }
+    public int reserveTroops() { return reserveTroops; }
+    public int garrisonDefenderCount() { return garrisonDefenders.size(); }
+    public boolean hasGarrisonDefender(UUID uuid) { return garrisonDefenders.contains(uuid); }
+    public boolean registerGarrisonDefender(UUID uuid) { return garrisonDefenders.add(uuid); }
+    public boolean removeGarrisonDefender(UUID uuid) { return garrisonDefenders.remove(uuid); }
+    /** Funds one physical defensive iron golem; the caller must refund a failed spawn. */
+    public boolean fundGarrisonDefender(long gameTick) {
+        if (kind != FactionKind.VILLAGER || barracks <= 0 || population() < 3
+                || stability < 40 || iron < 12.0 || food < 35.0
+                || gameTick < lastGarrisonDeploymentTick
+                || gameTick - lastGarrisonDeploymentTick < 24000L) return false;
+        iron -= 12.0;
+        food -= 8.0;
+        lastGarrisonDeploymentTick = gameTick;
+        note("Equipped a physical garrison defender");
+        return true;
+    }
+    public void refundGarrisonDefender(long gameTick) {
+        if (lastGarrisonDeploymentTick != gameTick) return;
+        lastGarrisonDeploymentTick = 0L;
+        iron = clamp(iron + 12.0, 0, MAX_STOCKPILE);
+        food = clamp(food + 8.0, 0, MAX_STOCKPILE);
+    }
+    public long lastGrowthTick() { return lastGrowthTick; }
+    public boolean canFundGrowth(long gameTick) {
+        return population() >= 2 && population() < housingCapacity()
+                && food >= Math.max(60.0, population() * 9.0)
+                && stability >= 55.0 && gameTick >= lastGrowthTick
+                && gameTick - lastGrowthTick >= 24000L;
+    }
+    public void refundFailedGrowth(long gameTick) {
+        if (lastGrowthTick == gameTick) {
+            food = clamp(food + 12.0, 0, MAX_STOCKPILE);
+            lastGrowthTick = 0L;
+        }
+    }
+    public boolean fundGrowth(long gameTick) {
+        if (!canFundGrowth(gameTick)) return false;
+        food -= 12.0;
+        lastGrowthTick = gameTick;
+        note("Funded a new household with food reserves");
+        return true;
+    }
+    public int completedShelters() { return completedShelters; }
+    public int housingCapacity() { return 2 + completedShelters * 2; }
+    public int housingShortfall() { return Math.max(0, population() - housingCapacity()); }
+    public void updateCompletedShelters(int count) { completedShelters = Math.max(0, count); }
     public long simulationCount() { return simulationCount; }
     public NationPolicy policy() { return policy; }
     public Set<UUID> citizens() { return citizens; }
@@ -190,6 +244,7 @@ public final class NationFaction {
         iron = clamp(iron + workers * 0.055 * efficiency + workshops * 0.55, 0, MAX_STOCKPILE);
         knowledge = clamp(knowledge + people * 0.03 + workshops * 0.30, 0, MAX_STOCKPILE);
         updateWelfare(people);
+        trainReserveTroops(people);
         updatePolicy(people);
         assignJobs(people);
         makeIndependentDecision(people);
@@ -205,8 +260,25 @@ public final class NationFaction {
             stability = clamp(stability + 0.8, 0, 100);
             prosperity = clamp(prosperity + 1, 0, 100);
         } else stability = clamp(stability + 0.2, 0, 100);
+        if (housingShortfall() > 0) {
+            stability = clamp(stability - Math.min(2.0, housingShortfall() * 0.25), 0, 100);
+        }
         if (barracks > 0) militaryReadiness = clamp(militaryReadiness + 0.35, 0, 100);
         else militaryReadiness = clamp(militaryReadiness - 0.1, 0, 100);
+    }
+
+    /** Trains an abstract reserve only when supplied and housed; no mobs are spawned here. */
+    private void trainReserveTroops(int people) {
+        int limit = Math.min(people / 3, barracks * 3);
+        if (reserveTroops > limit) reserveTroops = limit;
+        if (reserveTroops < limit && food >= Math.max(30.0, people * 4.0)
+                && iron >= 2.0 && stability >= 35 && housingShortfall() == 0) {
+            food -= 2.0;
+            iron -= 1.0;
+            reserveTroops++;
+            militaryReadiness = clamp(militaryReadiness + 0.5, 0, 100);
+            note("Trained a reserve defender (strategic roster only)");
+        }
     }
 
     private void updatePolicy(int people) {
@@ -308,6 +380,17 @@ public final class NationFaction {
         tag.putDouble("MilitaryReadiness", militaryReadiness);
         tag.putInt("Farms", farms); tag.putInt("LumberCamps", lumberCamps); tag.putInt("Quarries", quarries);
         tag.putInt("Workshops", workshops); tag.putInt("Barracks", barracks);
+        tag.putInt("ReserveTroops", reserveTroops);
+        tag.putLong("LastGrowthTick", lastGrowthTick);
+        tag.putLong("LastGarrisonDeploymentTick", lastGarrisonDeploymentTick);
+        ListTag defendersTag = new ListTag();
+        for (UUID defender : garrisonDefenders) {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("UUID", defender);
+            defendersTag.add(entry);
+        }
+        tag.put("GarrisonDefenders", defendersTag);
+        tag.putInt("CompletedShelters", completedShelters);
         tag.putInt("Technology", technology); tag.putInt("SettlementTier", settlementTier);
         tag.putLong("SimulationCount", simulationCount);
         tag.putString("Policy", policy.name());
@@ -336,6 +419,15 @@ public final class NationFaction {
         faction.farms = tag.getInt("Farms"); faction.lumberCamps = tag.getInt("LumberCamps");
         faction.quarries = tag.getInt("Quarries"); faction.workshops = tag.getInt("Workshops");
         faction.barracks = tag.getInt("Barracks");
+        faction.reserveTroops = Math.max(0, tag.getInt("ReserveTroops"));
+        faction.lastGrowthTick = Math.max(0L, tag.getLong("LastGrowthTick"));
+        faction.lastGarrisonDeploymentTick = Math.max(0L, tag.getLong("LastGarrisonDeploymentTick"));
+        ListTag defendersTag = tag.getList("GarrisonDefenders", Tag.TAG_COMPOUND);
+        for (int i = 0; i < defendersTag.size(); i++) {
+            CompoundTag entry = defendersTag.getCompound(i);
+            if (entry.hasUUID("UUID")) faction.garrisonDefenders.add(entry.getUUID("UUID"));
+        }
+        faction.completedShelters = Math.max(0, tag.getInt("CompletedShelters"));
         faction.technology = Math.max(1, tag.getInt("Technology"));
         faction.settlementTier = Math.max(1, tag.getInt("SettlementTier"));
         faction.simulationCount = tag.getLong("SimulationCount");

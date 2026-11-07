@@ -23,6 +23,7 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -42,6 +43,21 @@ public final class NationEvents {
     public static void onEntityJoin(EntityJoinLevelEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         Entity entity = event.getEntity();
+        if (entity instanceof IronGolem golem && golem.isAlive()) {
+            // Reconcile owned defenders as their chunks load, without generating chunks
+            // or counting unrelated village/player golems as military recruits.
+            NationSavedData data = NationSavedData.get(level.getServer());
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() == FactionKind.VILLAGER
+                        && dimension.equals(faction.dimension())
+                        && golem.getTags().contains("wan_garrison_" + faction.id())) {
+                    data.registerGarrisonDefender(faction, golem.getUUID());
+                    break;
+                }
+            }
+            return;
+        }
         FactionKind kind;
         if (entity instanceof Villager) {
             kind = FactionKind.VILLAGER;
@@ -55,11 +71,40 @@ public final class NationEvents {
     }
 
     @SubscribeEvent
+    public static void onEntityLeave(EntityLeaveLevelEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level)
+                || !(event.getEntity() instanceof IronGolem golem)) return;
+        // Chunk unloading is not a permanent loss. Only explicit discard or
+        // dimension transfer should release a defender's persistent roster slot.
+        Entity.RemovalReason reason = golem.getRemovalReason();
+        if (reason != Entity.RemovalReason.DISCARDED
+                && reason != Entity.RemovalReason.CHANGED_DIMENSION) return;
+        NationSavedData data = NationSavedData.get(level.getServer());
+        for (NationFaction faction : data.factions()) {
+            if (faction.hasGarrisonDefender(golem.getUUID())) {
+                data.removeGarrisonDefender(faction, golem.getUUID());
+                break;
+            }
+        }
+    }
+
+    @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
         LivingEntity entity = event.getEntity();
         if (!(entity.level() instanceof ServerLevel level)) return;
-        if (!(entity instanceof Villager) && !(entity instanceof AbstractIllager)) return;
-        NationSavedData.get(level.getServer()).removeCitizen(entity.getUUID());
+        NationSavedData data = NationSavedData.get(level.getServer());
+        if (entity instanceof IronGolem) {
+            // Unloading is not death: only a real death frees the persistent garrison slot.
+            for (NationFaction faction : data.factions()) {
+                if (faction.hasGarrisonDefender(entity.getUUID())) {
+                    data.removeGarrisonDefender(faction, entity.getUUID());
+                    break;
+                }
+            }
+            return;
+        }
+        if (entity instanceof Villager || entity instanceof AbstractIllager)
+            data.removeCitizen(entity.getUUID());
     }
 
     @SubscribeEvent
@@ -67,7 +112,12 @@ public final class NationEvents {
         if (event.phase != TickEvent.Phase.END) return;
         long gameTime = event.getServer().overworld().getGameTime();
         if (gameTime > 0 && gameTime % SIMULATION_INTERVAL_TICKS == 0) {
-            NationSavedData.get(event.getServer()).simulateAll();
+            NationSavedData data = NationSavedData.get(event.getServer());
+            data.simulateAll();
+            deployVillageGarrisons(event.getServer(), data);
+            planShelterExpansion(event.getServer(), data);
+            planEconomicInfrastructure(event.getServer(), data);
+            growHousedSettlements(event.getServer(), data, gameTime);
         }
         if (gameTime > 0 && gameTime % FARM_WORK_INTERVAL_TICKS == 0) {
             NationSavedData data = NationSavedData.get(event.getServer());
@@ -78,7 +128,8 @@ public final class NationEvents {
                         if (illagerFaction != null) defendIllagerAgainstMonsters(level, illager, illagerFaction, data);
                         continue;
                     }
-                    if (!(loaded instanceof Villager villager) || !villager.isAlive()) continue;
+                    // Children are registered citizens but cannot perform adult jobs or fight.
+                    if (!(loaded instanceof Villager villager) || !villager.isAlive() || villager.isBaby()) continue;
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
@@ -101,6 +152,246 @@ public final class NationEvents {
                 }
             }
         }
+    }
+
+    /**
+     * Deploys one tagged physical iron golem per funded barracks, using only loaded
+     * settlement chunks. This is defensive recruitment, not offensive faction warfare.
+     */
+    private static void deployVillageGarrisons(net.minecraft.server.MinecraftServer server, NationSavedData data) {
+        for (ServerLevel level : server.getAllLevels()) {
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() != FactionKind.VILLAGER || !dimension.equals(faction.dimension())
+                        || faction.barracks() <= 0 || faction.population() < 3) continue;
+                String ownershipTag = "wan_garrison_" + faction.id();
+                Villager recruiter = null;
+                for (Entity entity : level.getAllEntities()) {
+                    // Adopt already-loaded tagged defenders from worlds saved before the roster existed.
+                    if (entity instanceof IronGolem golem && golem.isAlive()
+                            && golem.getTags().contains(ownershipTag))
+                        data.registerGarrisonDefender(faction, golem.getUUID());
+                    if (recruiter == null && entity instanceof Villager villager
+                            && villager.isAlive() && !villager.isBaby()
+                            && faction.citizens().contains(villager.getUUID())) recruiter = villager;
+                }
+                if (recruiter == null || faction.garrisonDefenderCount() >= Math.min(2, faction.barracks())) continue;
+                BlockPos origin = recruiter.blockPosition();
+                boolean placed = false;
+                for (int dx = -3; dx <= 3 && !placed; dx++) {
+                    for (int dz = -3; dz <= 3; dz++) {
+                        BlockPos pos = origin.offset(dx, 0, dz);
+                        if (!level.hasChunkAt(pos) || !level.hasChunkAt(pos.below())
+                                || !level.getBlockState(pos.below()).isSolidRender(level, pos.below())
+                                || !level.getBlockState(pos).isAir()
+                                || !level.getBlockState(pos.above()).isAir()
+                                || !level.getBlockState(pos.above(2)).isAir()) continue;
+                        AABB area = new AABB(pos.getX(), pos.getY(), pos.getZ(),
+                                pos.getX() + 1, pos.getY() + 3, pos.getZ() + 1);
+                        if (!level.getEntities((Entity) null, area).isEmpty()) continue;
+                        IronGolem defender = net.minecraft.world.entity.EntityType.IRON_GOLEM.create(level);
+                        if (defender == null) continue;
+                        defender.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+                        // A three-block air column is not sufficient: the actual golem
+                        // bounding box must fit, and recruits must remain inside the border.
+                        if (!level.getWorldBorder().isWithinBounds(pos)
+                                || !level.noCollision(defender)) continue;
+                        defender.setPlayerCreated(true);
+                        defender.addTag(ownershipTag);
+                        if (!data.fundGarrisonDefender(faction, server.overworld().getGameTime())) break;
+                        if (!level.addFreshEntity(defender)) {
+                            // EntityJoinLevelEvent may have registered this UUID before
+                            // another listener vetoed the spawn. Undo both effects.
+                            data.removeGarrisonDefender(faction, defender.getUUID());
+                            data.refundGarrisonDefender(faction, server.overworld().getGameTime());
+                            continue;
+                        }
+                        data.registerGarrisonDefender(faction, defender.getUUID());
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Plans at most one new shelter per settlement per strategic tick. Only loaded,
+     * unobstructed ground is considered; this never generates chunks or overwrites blocks.
+     * Construction itself remains the responsibility of an assigned worker.
+     */
+    private static void planShelterExpansion(net.minecraft.server.MinecraftServer server, NationSavedData data) {
+        for (ServerLevel level : server.getAllLevels()) {
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() != FactionKind.VILLAGER || !faction.dimension().equals(dimension)
+                        || faction.population() < 2 || faction.population() < faction.housingCapacity()
+                        || faction.wood() < 23.0) continue;
+                boolean pending = data.worksites().stream().anyMatch(site ->
+                        site.factionId().equals(faction.id()) && site.type() == NationWorksite.Type.BUILD
+                        && !data.isBuildSiteCompleted(faction.id(), dimension,
+                                new BlockPos(site.x(), site.y(), site.z())));
+                if (pending) continue;
+                Villager builder = null;
+                for (Entity entity : level.getAllEntities()) {
+                    if (entity instanceof Villager villager && villager.isAlive() && !villager.isBaby()
+                            && faction.citizens().contains(villager.getUUID())
+                            && (faction.jobOf(villager.getUUID()) == NationJob.CRAFTSMAN
+                                || faction.jobOf(villager.getUUID()) == NationJob.GENERAL_WORKER)) {
+                        builder = villager;
+                        break;
+                    }
+                }
+                if (builder == null) continue;
+                BlockPos origin = builder.blockPosition();
+                boolean planned = false;
+                for (int radius = 6; radius <= 14 && !planned; radius += 4) {
+                    for (int dx = -radius; dx <= radius && !planned; dx += 4) {
+                        for (int dz = -radius; dz <= radius && !planned; dz += 4) {
+                            BlockPos base = origin.offset(dx, 0, dz);
+                            if (!safeShelterSite(level, data, dimension, base)) continue;
+                            planned = data.addBuildWorksite(faction, dimension, base);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Plans physical service stations when the faction can afford them.
+     * This does not double-count the abstract workshop economy: a station is a
+     * physical work destination, not an additional abstract production multiplier.
+     */
+    /**
+     * Creates at most one real baby villager per eligible faction per Minecraft day.
+     * Only existing, loaded adult citizens may act as a parent; no virtual citizens
+     * are added to the roster. EntityJoinLevelEvent registers successful spawns.
+     */
+    private static void growHousedSettlements(net.minecraft.server.MinecraftServer server,
+            NationSavedData data, long gameTime) {
+        for (ServerLevel level : server.getAllLevels()) {
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() != FactionKind.VILLAGER || !faction.dimension().equals(dimension)
+                        || !faction.canFundGrowth(gameTime)) continue;
+                Villager parent = null;
+                for (Entity entity : level.getAllEntities()) {
+                    if (entity instanceof Villager villager && villager.isAlive() && !villager.isBaby()
+                            && faction.citizens().contains(villager.getUUID())) {
+                        parent = villager;
+                        break;
+                    }
+                }
+                if (parent == null) continue;
+                BlockPos origin = parent.blockPosition();
+                for (int dx = -3; dx <= 3; dx++) {
+                    boolean spawned = false;
+                    for (int dz = -3; dz <= 3; dz++) {
+                        BlockPos pos = origin.offset(dx, 0, dz);
+                        BlockPos below = pos.below();
+                        if (!level.hasChunkAt(pos) || !level.hasChunkAt(below)
+                                || !level.getBlockState(below).isSolidRender(level, below)
+                                || !level.getBlockState(pos).isAir()
+                                || !level.getBlockState(pos.above()).isAir()) continue;
+                        AABB volume = new AABB(pos.getX(), pos.getY(), pos.getZ(),
+                                pos.getX() + 1, pos.getY() + 2, pos.getZ() + 1);
+                        if (!level.getEntities((Entity) null, volume).isEmpty()) continue;
+                        Villager child = net.minecraft.world.entity.EntityType.VILLAGER.create(level);
+                        if (child == null) continue;
+                        child.setBaby(true);
+                        child.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                                parent.getYRot(), 0.0F);
+                        if (!data.fundPopulationGrowth(faction, gameTime)) break;
+                        if (!data.registerNewborn(faction, child.getUUID())) {
+                            data.refundFailedPopulationGrowth(faction, gameTime);
+                            break;
+                        }
+                        if (!level.addFreshEntity(child)) {
+                            data.removeCitizen(child.getUUID());
+                            data.refundFailedPopulationGrowth(faction, gameTime);
+                            // A rejected spawn must not count as a successful birth.
+                            // Try another safe position without charging the faction.
+                            continue;
+                        }
+                        spawned = true;
+                        break;
+                    }
+                    if (spawned) break;
+                }
+            }
+        }
+    }
+
+    private static void planEconomicInfrastructure(net.minecraft.server.MinecraftServer server, NationSavedData data) {
+        for (ServerLevel level : server.getAllLevels()) {
+            String dimension = level.dimension().location().toString();
+            for (NationFaction faction : data.factions()) {
+                if (faction.kind() != FactionKind.VILLAGER || !faction.dimension().equals(dimension)
+                        || faction.population() < 3) continue;
+                NationWorksite.Type type = null;
+                if (faction.wood() >= 20.0 && faction.food() >= 35.0) {
+                    boolean hasStorage = data.worksites().stream().anyMatch(site ->
+                            site.factionId().equals(faction.id()) && site.type() == NationWorksite.Type.STORAGE);
+                    if (!hasStorage) type = NationWorksite.Type.STORAGE;
+                }
+                if (type == null && faction.wood() >= 30.0 && faction.technology() >= 2) {
+                    boolean hasWorkshop = data.worksites().stream().anyMatch(site ->
+                            site.factionId().equals(faction.id()) && site.type() == NationWorksite.Type.WORKSHOP);
+                    if (!hasWorkshop) type = NationWorksite.Type.WORKSHOP;
+                }
+                if (type == null) continue;
+                Villager builder = null;
+                for (Entity entity : level.getAllEntities()) {
+                    if (entity instanceof Villager villager && villager.isAlive() && !villager.isBaby()
+                            && faction.citizens().contains(villager.getUUID())
+                            && (faction.jobOf(villager.getUUID()) == NationJob.CRAFTSMAN
+                                || faction.jobOf(villager.getUUID()) == NationJob.GENERAL_WORKER)) {
+                        builder = villager;
+                        break;
+                    }
+                }
+                if (builder == null) continue;
+                BlockPos origin = builder.blockPosition();
+                boolean planned = false;
+                for (int radius = 6; radius <= 14 && !planned; radius += 4) {
+                    for (int dx = -radius; dx <= radius && !planned; dx += 4) {
+                        for (int dz = -radius; dz <= radius && !planned; dz += 4) {
+                            BlockPos site = origin.offset(dx, 0, dz);
+                            if (!safeShelterSite(level, data, dimension, site)) continue;
+                            planned = type == NationWorksite.Type.STORAGE
+                                    ? data.addStorageWorksite(faction, dimension, site)
+                                    : data.addWorkshopWorksite(faction, dimension, site);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean safeShelterSite(ServerLevel level, NationSavedData data,
+            String dimension, BlockPos base) {
+        if (base.getY() <= level.getMinBuildHeight() + 1
+                || base.getY() + 3 >= level.getMaxBuildHeight()) return false;
+        for (NationWorksite site : data.worksites()) {
+            if (!site.dimension().equals(dimension)) continue;
+            long dx = (long) site.x() - base.getX();
+            long dz = (long) site.z() - base.getZ();
+            if (dx * dx + dz * dz < 36L) return false;
+        }
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                BlockPos ground = base.offset(dx, -1, dz);
+                if (!level.hasChunkAt(ground) || !level.getBlockState(ground).isSolidRender(level, ground))
+                    return false;
+                for (int dy = 0; dy <= 2; dy++) {
+                    BlockPos pos = base.offset(dx, dy, dz);
+                    if (!level.hasChunkAt(pos) || !level.getBlockState(pos).isAir()) return false;
+                }
+            }
+        }
+        return level.getEntities((Entity) null,
+                new AABB(base.offset(-1, 0, -1), base.offset(2, 3, 2))).isEmpty();
     }
 
     /**
@@ -182,7 +473,7 @@ public final class NationEvents {
                 faction.centerX() + 49.0, level.getMaxBuildHeight(), faction.centerZ() + 49.0);
         java.util.List<Villager> guards = level.getEntitiesOfClass(Villager.class,
                         settlementArea,
-                        candidate -> candidate.isAlive()
+                        candidate -> candidate.isAlive() && !candidate.isBaby()
                                 && faction.id().equals(data.findCitizen(candidate.getUUID())
                                         .map(NationFaction::id).orElse(""))
                                 && faction.jobOf(candidate.getUUID()) == NationJob.GUARD)
@@ -293,7 +584,7 @@ public final class NationEvents {
         // stacking on one block. UUID ordering makes slot assignments stable between updates.
         AABB coordinationArea = threat.getBoundingBox().inflate(16.0);
         java.util.List<Villager> responders = level.getEntitiesOfClass(Villager.class, coordinationArea,
-                        candidate -> candidate.isAlive()
+                        candidate -> candidate.isAlive() && !candidate.isBaby()
                                 && faction.id().equals(data.findCitizen(candidate.getUUID())
                                         .map(NationFaction::id).orElse(""))
                                 && faction.jobOf(candidate.getUUID()) == NationJob.GUARD)
@@ -491,8 +782,12 @@ public final class NationEvents {
                 .map(ThreatAssessment::threat)
                 .orElse(null);
         AABB defenseArea = guard.getBoundingBox().inflate(24.0);
+        // Only command defenders owned by this faction. Unrelated vanilla, player,
+        // or other-faction golems must retain their own combat decisions.
+        String ownershipTag = "wan_garrison_" + faction.id();
         for (IronGolem golem : level.getEntitiesOfClass(IronGolem.class, defenseArea,
-                IronGolem::isAlive)) {
+                candidate -> candidate.isAlive() && candidate.getTags().contains(ownershipTag)
+                        && faction.hasGarrisonDefender(candidate.getUUID()))) {
             // Golems that are already fighting remain assigned unless their target
             // has become a diplomatic friend or an entity ally.
             LivingEntity existingTarget = golem.getTarget();
@@ -503,7 +798,10 @@ public final class NationEvents {
                 golem.setTarget(null);
                 existingTarget = null;
             }
-            if (threat != null && (existingTarget == null || !existingTarget.isAlive())) {
+            // A guard's alert radius is centered on the guard, not on each defender.
+            // Do not send a garrison golem chasing a target far outside its own post.
+            if (threat != null && golem.distanceToSqr(threat) <= 24.0 * 24.0
+                    && (existingTarget == null || !existingTarget.isAlive())) {
                 golem.setTarget(threat);
             }
         }
@@ -563,7 +861,9 @@ public final class NationEvents {
         }
 
         AABB buildVolume = new AABB(base.offset(-1, 0, -1), base.offset(2, 3, 2));
-        if (!level.getEntities(villager, buildVolume).isEmpty()) return;
+        // The builder is excluded by getEntities(villager, ...); check its own collision box too.
+        if (villager.getBoundingBox().intersects(buildVolume)
+                || !level.getEntities(villager, buildVolume).isEmpty()) return;
 
         // 7 lower wall blocks + 7 upper wall blocks + 9 roof blocks = 23.
         if (!data.spendWoodForConstruction(faction.id(), 23.0)) return;
@@ -602,7 +902,9 @@ public final class NationEvents {
             }
         }
         AABB volume = new AABB(base.offset(-1, 0, -1), base.offset(2, 1, 2));
-        if (!level.getEntities(villager, volume).isEmpty()) return;
+        // The builder is excluded from getEntities(villager, ...), so check it explicitly.
+        if (villager.getBoundingBox().intersects(volume)
+                || !level.getEntities(villager, volume).isEmpty()) return;
 
         if (type == NationWorksite.Type.STORAGE) {
             if (!data.spendWoodForConstruction(faction.id(), 8.0)) return;
