@@ -228,11 +228,9 @@ public final class NationEvents {
             if (centerDx * centerDx + centerDz * centerDz <= 256L) {
                 // Guards assigned to the same building take separate perimeter positions.
                 // The shared UUID-sorted roster makes each guard's local slot deterministic.
-                java.util.List<Villager> postGuards = guards.stream()
-                        .filter(candidate -> {
-                            int candidateIndex = guards.indexOf(candidate);
-                            return candidateIndex % assetPosts.size() == assignedPostIndex;
-                        })
+                java.util.List<Villager> postGuards = java.util.stream.IntStream.range(0, guards.size())
+                        .filter(candidateIndex -> candidateIndex % assetPosts.size() == assignedPostIndex)
+                        .mapToObj(guards::get)
                         .toList();
                 int postSlot = 0;
                 for (int i = 0; i < postGuards.size(); i++) {
