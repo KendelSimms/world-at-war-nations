@@ -23,6 +23,7 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -67,6 +68,24 @@ public final class NationEvents {
         }
         NationSavedData.get(level.getServer()).registerCitizen(
                 level, kind, entity.getUUID(), entity.blockPosition().getX(), entity.blockPosition().getZ());
+    }
+
+    @SubscribeEvent
+    public static void onEntityLeave(EntityLeaveLevelEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level)
+                || !(event.getEntity() instanceof IronGolem golem)) return;
+        // Chunk unloading is not a permanent loss. Only explicit discard or
+        // dimension transfer should release a defender's persistent roster slot.
+        Entity.RemovalReason reason = golem.getRemovalReason();
+        if (reason != Entity.RemovalReason.DISCARDED
+                && reason != Entity.RemovalReason.CHANGED_DIMENSION) return;
+        NationSavedData data = NationSavedData.get(level.getServer());
+        for (NationFaction faction : data.factions()) {
+            if (faction.hasGarrisonDefender(golem.getUUID())) {
+                data.removeGarrisonDefender(faction, golem.getUUID());
+                break;
+            }
+        }
     }
 
     @SubscribeEvent
