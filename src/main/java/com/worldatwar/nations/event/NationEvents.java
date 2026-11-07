@@ -171,12 +171,26 @@ public final class NationEvents {
                     if (entity instanceof IronGolem golem && golem.isAlive()
                             && golem.getTags().contains(ownershipTag))
                         data.registerGarrisonDefender(faction, golem.getUUID());
-                    if (recruiter == null && entity instanceof Villager villager
+                    if (entity instanceof Villager villager
                             && villager.isAlive() && !villager.isBaby()
                             && faction.citizens().contains(villager.getUUID())) {
                         long dx = (long) villager.blockPosition().getX() - faction.centerX();
                         long dz = (long) villager.blockPosition().getZ() - faction.centerZ();
-                        if (dx * dx + dz * dz <= 24L * 24L) recruiter = villager;
+                        long distanceSquared = dx * dx + dz * dz;
+                        if (distanceSquared <= 24L * 24L) {
+                            // Prefer the closest eligible home citizen. Entity iteration
+                            // order is not stable across chunk loads or server restarts.
+                            long bestDistanceSquared = Long.MAX_VALUE;
+                            if (recruiter != null) {
+                                long bestDx = (long) recruiter.blockPosition().getX() - faction.centerX();
+                                long bestDz = (long) recruiter.blockPosition().getZ() - faction.centerZ();
+                                bestDistanceSquared = bestDx * bestDx + bestDz * bestDz;
+                            }
+                            if (distanceSquared < bestDistanceSquared
+                                    || (distanceSquared == bestDistanceSquared && recruiter != null
+                                        && villager.getUUID().compareTo(recruiter.getUUID()) < 0))
+                                recruiter = villager;
+                        }
                     }
                 }
                 // Only recruit at the home settlement. A citizen working at a distant
