@@ -400,8 +400,9 @@ public final class NationEvents {
         LivingEntity currentTarget = illager.getTarget();
         if (currentTarget != null && currentTarget.isAlive()) {
             // Re-check registered monster targets so a new peace treaty or alliance takes effect.
-            if (!(currentTarget instanceof Monster currentMonster)
-                    || diplomaticThreatPriority(currentMonster, faction, data) < 3) return;
+            if (!(currentTarget instanceof Monster currentMonster)) return;
+            if (!currentMonster.isAlliedTo(illager)
+                    && diplomaticThreatPriority(currentMonster, faction, data) < 3) return;
             illager.setTarget(null);
         }
 
