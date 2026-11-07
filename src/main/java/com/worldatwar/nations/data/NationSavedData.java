@@ -342,6 +342,14 @@ public final class NationSavedData extends SavedData {
         return true;
     }
 
+    /** Assigns a newborn to its actual parent settlement before its join event fires. */
+    public boolean registerNewborn(NationFaction faction, UUID uuid) {
+        if (factions.get(faction.id()) != faction || findCitizen(uuid).isPresent()) return false;
+        if (!faction.addCitizen(uuid)) return false;
+        setDirty();
+        return true;
+    }
+
     public boolean fundPopulationGrowth(NationFaction faction, long gameTick) {
         if (factions.get(faction.id()) != faction || !faction.fundGrowth(gameTick)) return false;
         setDirty();
