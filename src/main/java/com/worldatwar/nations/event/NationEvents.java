@@ -300,11 +300,12 @@ public final class NationEvents {
                 break;
             }
         }
-        // Guards outside the coordination radius still get a stable independent slot.
-        if (responders.stream().noneMatch(candidate -> candidate.getUUID().equals(guard.getUUID()))) {
-            slot = Math.floorMod(guard.getUUID().hashCode(), Math.max(1, responders.size() + 1));
-        }
-        int responderCount = Math.max(1, responders.size());
+        // Include the responding guard in the slot count even if it is outside
+        // the threat-centered coordination radius.
+        boolean guardInRoster = responders.stream()
+                .anyMatch(candidate -> candidate.getUUID().equals(guard.getUUID()));
+        if (!guardInRoster) slot = responders.size();
+        int responderCount = Math.max(1, responders.size() + (guardInRoster ? 0 : 1));
         double angle = (Math.PI * 2.0 * slot) / responderCount;
         double targetX = threat.getX() + Math.cos(angle) * 3.5;
         double targetZ = threat.getZ() + Math.sin(angle) * 3.5;
