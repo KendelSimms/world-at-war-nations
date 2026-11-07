@@ -178,8 +178,8 @@ public final class NationEvents {
         // This gives every guard in the settlement the same ordered roster and stable asset slots.
         NationSavedData data = NationSavedData.get(level.getServer());
         AABB settlementArea = new AABB(
-                faction.centerX() - 48.0, current.getY() - 32.0, faction.centerZ() - 48.0,
-                faction.centerX() + 49.0, current.getY() + 33.0, faction.centerZ() + 49.0);
+                faction.centerX() - 48.0, level.getMinBuildHeight(), faction.centerZ() - 48.0,
+                faction.centerX() + 49.0, level.getMaxBuildHeight(), faction.centerZ() + 49.0);
         java.util.List<Villager> guards = level.getEntitiesOfClass(Villager.class,
                         settlementArea,
                         candidate -> candidate.isAlive()
