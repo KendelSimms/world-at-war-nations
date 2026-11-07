@@ -30,14 +30,14 @@ public final class NationSavedData extends SavedData {
     }
 
     /** Marks physical garrison expenditures as persistent, including refunded failures. */
-    public boolean fundGarrisonDefender(NationFaction faction) {
-        if (!factions.containsKey(faction.id()) || !faction.fundGarrisonDefender()) return false;
+    public boolean fundGarrisonDefender(NationFaction faction, long gameTick) {
+        if (!factions.containsKey(faction.id()) || !faction.fundGarrisonDefender(gameTick)) return false;
         setDirty();
         return true;
     }
-    public void refundGarrisonDefender(NationFaction faction) {
+    public void refundGarrisonDefender(NationFaction faction, long gameTick) {
         if (!factions.containsKey(faction.id())) return;
-        faction.refundGarrisonDefender();
+        faction.refundGarrisonDefender(gameTick);
         setDirty();
     }
     public Collection<NationFaction> factions() { return factions.values(); }
