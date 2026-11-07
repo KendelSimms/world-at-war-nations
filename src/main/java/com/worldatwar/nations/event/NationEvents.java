@@ -120,16 +120,17 @@ public final class NationEvents {
                 if (faction.kind() != FactionKind.VILLAGER || !dimension.equals(faction.dimension())
                         || faction.barracks() <= 0 || faction.population() < 3) continue;
                 String ownershipTag = "wan_garrison_" + faction.id();
-                int active = 0;
                 Villager recruiter = null;
                 for (Entity entity : level.getAllEntities()) {
+                    // Adopt already-loaded tagged defenders from worlds saved before the roster existed.
                     if (entity instanceof IronGolem golem && golem.isAlive()
-                            && golem.getTags().contains(ownershipTag)) active++;
+                            && golem.getTags().contains(ownershipTag))
+                        data.registerGarrisonDefender(faction, golem.getUUID());
                     if (recruiter == null && entity instanceof Villager villager
                             && villager.isAlive() && !villager.isBaby()
                             && faction.citizens().contains(villager.getUUID())) recruiter = villager;
                 }
-                if (recruiter == null || active >= Math.min(2, faction.barracks())) continue;
+                if (recruiter == null || faction.garrisonDefenderCount() >= Math.min(2, faction.barracks())) continue;
                 BlockPos origin = recruiter.blockPosition();
                 boolean placed = false;
                 for (int dx = -3; dx <= 3 && !placed; dx++) {
@@ -153,6 +154,7 @@ public final class NationEvents {
                             data.refundGarrisonDefender(faction, server.overworld().getGameTime());
                             continue;
                         }
+                        data.registerGarrisonDefender(faction, defender.getUUID());
                         placed = true;
                         break;
                     }
