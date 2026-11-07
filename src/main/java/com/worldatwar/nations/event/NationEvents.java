@@ -58,8 +58,19 @@ public final class NationEvents {
     public static void onLivingDeath(LivingDeathEvent event) {
         LivingEntity entity = event.getEntity();
         if (!(entity.level() instanceof ServerLevel level)) return;
-        if (!(entity instanceof Villager) && !(entity instanceof AbstractIllager)) return;
-        NationSavedData.get(level.getServer()).removeCitizen(entity.getUUID());
+        NationSavedData data = NationSavedData.get(level.getServer());
+        if (entity instanceof IronGolem) {
+            // Unloading is not death: only a real death frees the persistent garrison slot.
+            for (NationFaction faction : data.factions()) {
+                if (faction.hasGarrisonDefender(entity.getUUID())) {
+                    data.removeGarrisonDefender(faction, entity.getUUID());
+                    break;
+                }
+            }
+            return;
+        }
+        if (entity instanceof Villager || entity instanceof AbstractIllager)
+            data.removeCitizen(entity.getUUID());
     }
 
     @SubscribeEvent
