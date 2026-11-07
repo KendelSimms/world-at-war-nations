@@ -463,7 +463,7 @@ public final class NationEvents {
                 .orElse(null);
         AABB defenseArea = guard.getBoundingBox().inflate(24.0);
         for (IronGolem golem : level.getEntitiesOfClass(IronGolem.class, defenseArea,
-                IronGolem::isAlive)) {
+                candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard))) {
             LivingEntity existingTarget = golem.getTarget();
             // Do not preserve an obsolete diplomatic enemy after peace is established.
             if (existingTarget instanceof Monster existingMonster
