@@ -148,7 +148,7 @@ public final class NationEvents {
                         defender.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
                         defender.setPlayerCreated(true);
                         defender.addTag(ownershipTag);
-                        if (!data.fundGarrisonDefender(faction)) return;
+                        if (!data.fundGarrisonDefender(faction)) break;
                         if (!level.addFreshEntity(defender)) {
                             data.refundGarrisonDefender(faction);
                             continue;
