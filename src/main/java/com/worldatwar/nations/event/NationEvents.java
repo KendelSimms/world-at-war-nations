@@ -148,9 +148,9 @@ public final class NationEvents {
                         defender.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
                         defender.setPlayerCreated(true);
                         defender.addTag(ownershipTag);
-                        if (!data.fundGarrisonDefender(faction)) break;
+                        if (!data.fundGarrisonDefender(faction, server.overworld().getGameTime())) break;
                         if (!level.addFreshEntity(defender)) {
-                            data.refundGarrisonDefender(faction);
+                            data.refundGarrisonDefender(faction, server.overworld().getGameTime());
                             continue;
                         }
                         placed = true;
