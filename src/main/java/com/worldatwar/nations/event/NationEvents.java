@@ -173,6 +173,10 @@ public final class NationEvents {
                         IronGolem defender = net.minecraft.world.entity.EntityType.IRON_GOLEM.create(level);
                         if (defender == null) continue;
                         defender.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+                        // A three-block air column is not sufficient: the actual golem
+                        // bounding box must fit, and recruits must remain inside the border.
+                        if (!level.getWorldBorder().isWithinBounds(pos)
+                                || !level.noCollision(defender)) continue;
                         defender.setPlayerCreated(true);
                         defender.addTag(ownershipTag);
                         if (!data.fundGarrisonDefender(faction, server.overworld().getGameTime())) break;
