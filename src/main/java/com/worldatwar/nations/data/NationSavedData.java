@@ -29,6 +29,28 @@ public final class NationSavedData extends SavedData {
         return overworld.getDataStorage().computeIfAbsent(NationSavedData::load, NationSavedData::new, DATA_NAME);
     }
 
+    /** Marks physical garrison expenditures as persistent, including refunded failures. */
+    public boolean fundGarrisonDefender(NationFaction faction, long gameTick) {
+        if (!factions.containsKey(faction.id()) || !faction.fundGarrisonDefender(gameTick)) return false;
+        setDirty();
+        return true;
+    }
+    public void refundGarrisonDefender(NationFaction faction, long gameTick) {
+        if (!factions.containsKey(faction.id())) return;
+        faction.refundGarrisonDefender(gameTick);
+        setDirty();
+    }
+    /** A deployed defender counts even while its chunk is unloaded. */
+    public boolean registerGarrisonDefender(NationFaction faction, UUID defenderId) {
+        if (!factions.containsKey(faction.id()) || !faction.registerGarrisonDefender(defenderId)) return false;
+        setDirty();
+        return true;
+    }
+    public boolean removeGarrisonDefender(NationFaction faction, UUID defenderId) {
+        if (!factions.containsKey(faction.id()) || !faction.removeGarrisonDefender(defenderId)) return false;
+        setDirty();
+        return true;
+    }
     public Collection<NationFaction> factions() { return factions.values(); }
     public Collection<NationRelation> relations() { return relations.values(); }
     public Optional<NationFaction> find(String id) { return Optional.ofNullable(factions.get(id)); }
@@ -264,6 +286,10 @@ public final class NationSavedData extends SavedData {
                 })).orElse(null);
         if (nearest == null) return false;
         worksites.remove(nearest);
+        // Removing a service site also removes its completion marker, so a later
+        // site at the same coordinates can be constructed again safely.
+        completedInfrastructureSites.remove(infrastructureSiteKey(factionId, dimension,
+                new net.minecraft.core.BlockPos(nearest.x(), nearest.y(), nearest.z()), type));
         setDirty();
         return true;
     }
@@ -338,6 +364,26 @@ public final class NationSavedData extends SavedData {
         return true;
     }
 
+    /** Assigns a newborn to its actual parent settlement before its join event fires. */
+    public boolean registerNewborn(NationFaction faction, UUID uuid) {
+        if (factions.get(faction.id()) != faction || findCitizen(uuid).isPresent()) return false;
+        if (!faction.addCitizen(uuid)) return false;
+        setDirty();
+        return true;
+    }
+
+    public boolean fundPopulationGrowth(NationFaction faction, long gameTick) {
+        if (factions.get(faction.id()) != faction || !faction.fundGrowth(gameTick)) return false;
+        setDirty();
+        return true;
+    }
+
+    public void refundFailedPopulationGrowth(NationFaction faction, long gameTick) {
+        if (factions.get(faction.id()) != faction) return;
+        faction.refundFailedGrowth(gameTick);
+        setDirty();
+    }
+
     public void removeCitizen(UUID uuid) {
         boolean changed = false;
         for (NationFaction faction : factions.values()) changed |= faction.removeCitizen(uuid);
@@ -348,6 +394,13 @@ public final class NationSavedData extends SavedData {
         boolean changed = false;
         for (NationFaction faction : factions.values()) {
             int before = faction.population();
+            // Reconcile housing against completed physical build markers every simulation tick.
+            // Never count unfinished worksites as homes.
+            long shelters = worksites.stream().filter(site -> site.type() == NationWorksite.Type.BUILD
+                    && site.factionId().equals(faction.id())
+                    && completedBuildSites.contains(buildSiteKey(faction.id(), site.dimension(),
+                            new net.minecraft.core.BlockPos(site.x(), site.y(), site.z())))).count();
+            faction.updateCompletedShelters((int) Math.min(Integer.MAX_VALUE, shelters));
             faction.simulate();
             changed |= before > 0;
         }
