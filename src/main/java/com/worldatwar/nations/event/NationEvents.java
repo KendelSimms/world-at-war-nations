@@ -209,9 +209,14 @@ public final class NationEvents {
                 .filter(site -> site.factionId().equals(faction.id()) && site.dimension().equals(dimension))
                 .filter(site -> switch (site.type()) {
                     case BUILD -> data.isBuildSiteCompleted(faction.id(), dimension,
-                            new BlockPos(site.x(), site.y(), site.z()));
+                            new BlockPos(site.x(), site.y(), site.z()))
+                            && level.hasChunkAt(new BlockPos(site.x(), site.y(), site.z()))
+                            && level.getBlockState(new BlockPos(site.x(), site.y() + 2, site.z())).is(Blocks.OAK_PLANKS);
                     case STORAGE, WORKSHOP -> data.isInfrastructureSiteCompleted(faction.id(), dimension,
-                            new BlockPos(site.x(), site.y(), site.z()), site.type());
+                            new BlockPos(site.x(), site.y(), site.z()), site.type())
+                            && level.hasChunkAt(new BlockPos(site.x(), site.y(), site.z()))
+                            && level.getBlockState(new BlockPos(site.x(), site.y(), site.z())).is(
+                                    site.type() == NationWorksite.Type.STORAGE ? Blocks.CHEST : Blocks.CRAFTING_TABLE);
                     default -> false;
                 })
                 .map(site -> new BlockPos(site.x(), site.y(), site.z()))
