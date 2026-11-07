@@ -203,6 +203,9 @@ public final class NationEvents {
                         if (!level.addFreshEntity(child)) {
                             data.removeCitizen(child.getUUID());
                             data.refundFailedPopulationGrowth(faction, gameTime);
+                            // A rejected spawn must not count as a successful birth.
+                            // Try another safe position without charging the faction.
+                            continue;
                         }
                         spawned = true;
                         break;
