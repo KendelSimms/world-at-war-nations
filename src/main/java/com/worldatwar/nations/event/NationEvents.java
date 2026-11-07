@@ -300,12 +300,15 @@ public final class NationEvents {
                 break;
             }
         }
-        // Include the responding guard in the slot count even if it is outside
-        // the threat-centered coordination radius.
-        boolean guardInRoster = responders.stream()
-                .anyMatch(candidate -> candidate.getUUID().equals(guard.getUUID()));
-        if (!guardInRoster) slot = responders.size();
-        int responderCount = Math.max(1, responders.size() + (guardInRoster ? 0 : 1));
+        // Include the responding guard in the same UUID-ordered formation even if
+        // it is outside the threat-centered coordination radius.
+        java.util.List<Villager> formation = new java.util.ArrayList<>(responders);
+        if (formation.stream().noneMatch(candidate -> candidate.getUUID().equals(guard.getUUID()))) {
+            formation.add(guard);
+            formation.sort(java.util.Comparator.comparing(candidate -> candidate.getUUID().toString()));
+        }
+        slot = formation.indexOf(guard);
+        int responderCount = Math.max(1, formation.size());
         double angle = (Math.PI * 2.0 * slot) / responderCount;
         double targetX = threat.getX() + Math.cos(angle) * 3.5;
         double targetZ = threat.getZ() + Math.sin(angle) * 3.5;
