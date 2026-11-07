@@ -193,8 +193,13 @@ public final class NationEvents {
                         child.setBaby(true);
                         child.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
                                 parent.getYRot(), 0.0F);
-                        if (!data.fundPopulationGrowth(faction, gameTime)) return;
+                        if (!data.fundPopulationGrowth(faction, gameTime)) break;
+                        if (!data.registerNewborn(faction, child.getUUID())) {
+                            data.refundFailedPopulationGrowth(faction, gameTime);
+                            break;
+                        }
                         if (!level.addFreshEntity(child)) {
+                            data.removeCitizen(child.getUUID());
                             data.refundFailedPopulationGrowth(faction, gameTime);
                         }
                         spawned = true;
