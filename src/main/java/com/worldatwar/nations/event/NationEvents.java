@@ -804,6 +804,7 @@ public final class NationEvents {
         AABB threatArea = guard.getBoundingBox().inflate(24.0);
         Monster threat = level.getEntitiesOfClass(Monster.class, threatArea,
                         candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard)
+                                && withinGarrisonDefensePerimeter(candidate, faction)
                                 && diplomaticThreatPriority(candidate, faction, data) < 3)
                 .stream()
                 .map(candidate -> new ThreatAssessment(candidate,
