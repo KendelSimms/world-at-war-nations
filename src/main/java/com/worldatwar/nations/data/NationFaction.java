@@ -32,6 +32,8 @@ public final class NationFaction {
     private int reserveTroops;
     private long lastGrowthTick;
     private long lastGarrisonDeploymentTick;
+    // UUID roster survives chunk unloads and restarts; deaths require explicit reconciliation.
+    private final Set<UUID> garrisonDefenders = new HashSet<>();
     private int completedShelters;
     private long simulationCount;
     private NationPolicy policy = NationPolicy.BALANCED;
@@ -69,6 +71,10 @@ public final class NationFaction {
     public int workshops() { return workshops; }
     public int barracks() { return barracks; }
     public int reserveTroops() { return reserveTroops; }
+    public int garrisonDefenderCount() { return garrisonDefenders.size(); }
+    public boolean hasGarrisonDefender(UUID uuid) { return garrisonDefenders.contains(uuid); }
+    public boolean registerGarrisonDefender(UUID uuid) { return garrisonDefenders.add(uuid); }
+    public boolean removeGarrisonDefender(UUID uuid) { return garrisonDefenders.remove(uuid); }
     /** Funds one physical defensive iron golem; the caller must refund a failed spawn. */
     public boolean fundGarrisonDefender(long gameTick) {
         if (kind != FactionKind.VILLAGER || barracks <= 0 || population() < 3
@@ -377,6 +383,13 @@ public final class NationFaction {
         tag.putInt("ReserveTroops", reserveTroops);
         tag.putLong("LastGrowthTick", lastGrowthTick);
         tag.putLong("LastGarrisonDeploymentTick", lastGarrisonDeploymentTick);
+        ListTag defendersTag = new ListTag();
+        for (UUID defender : garrisonDefenders) {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("UUID", defender);
+            defendersTag.add(entry);
+        }
+        tag.put("GarrisonDefenders", defendersTag);
         tag.putInt("CompletedShelters", completedShelters);
         tag.putInt("Technology", technology); tag.putInt("SettlementTier", settlementTier);
         tag.putLong("SimulationCount", simulationCount);
@@ -409,6 +422,11 @@ public final class NationFaction {
         faction.reserveTroops = Math.max(0, tag.getInt("ReserveTroops"));
         faction.lastGrowthTick = Math.max(0L, tag.getLong("LastGrowthTick"));
         faction.lastGarrisonDeploymentTick = Math.max(0L, tag.getLong("LastGarrisonDeploymentTick"));
+        ListTag defendersTag = tag.getList("GarrisonDefenders", Tag.TAG_COMPOUND);
+        for (int i = 0; i < defendersTag.size(); i++) {
+            CompoundTag entry = defendersTag.getCompound(i);
+            if (entry.hasUUID("UUID")) faction.garrisonDefenders.add(entry.getUUID("UUID"));
+        }
         faction.completedShelters = Math.max(0, tag.getInt("CompletedShelters"));
         faction.technology = Math.max(1, tag.getInt("Technology"));
         faction.settlementTier = Math.max(1, tag.getInt("SettlementTier"));
