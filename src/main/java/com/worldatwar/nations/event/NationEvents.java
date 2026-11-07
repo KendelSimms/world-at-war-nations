@@ -268,11 +268,14 @@ public final class NationEvents {
         Monster threat = level.getEntitiesOfClass(Monster.class, patrolArea,
                         candidate -> candidate.isAlive() && !candidate.isAlliedTo(guard))
                 .stream()
+                .filter(candidate -> diplomaticThreatPriority(candidate, faction, data) < 3)
                 .map(candidate -> new ThreatAssessment(candidate,
                         distanceToFactionAsset(level, candidate, faction, data)))
                 .filter(assessment -> Double.isFinite(assessment.assetDistanceSquared()))
                 .min(java.util.Comparator
-                        .comparingDouble(ThreatAssessment::assetDistanceSquared)
+                        .comparingInt((ThreatAssessment assessment) ->
+                                diplomaticThreatPriority(assessment.threat(), faction, data))
+                        .thenComparingDouble(ThreatAssessment::assetDistanceSquared)
                         .thenComparingDouble(assessment -> guard.distanceToSqr(assessment.threat())))
                 .map(ThreatAssessment::threat)
                 .orElse(null);
