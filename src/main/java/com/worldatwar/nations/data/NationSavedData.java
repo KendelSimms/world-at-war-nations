@@ -40,6 +40,17 @@ public final class NationSavedData extends SavedData {
         faction.refundGarrisonDefender(gameTick);
         setDirty();
     }
+    /** A deployed defender counts even while its chunk is unloaded. */
+    public boolean registerGarrisonDefender(NationFaction faction, UUID defenderId) {
+        if (!factions.containsKey(faction.id()) || !faction.registerGarrisonDefender(defenderId)) return false;
+        setDirty();
+        return true;
+    }
+    public boolean removeGarrisonDefender(NationFaction faction, UUID defenderId) {
+        if (!factions.containsKey(faction.id()) || !faction.removeGarrisonDefender(defenderId)) return false;
+        setDirty();
+        return true;
+    }
     public Collection<NationFaction> factions() { return factions.values(); }
     public Collection<NationRelation> relations() { return relations.values(); }
     public Optional<NationFaction> find(String id) { return Optional.ofNullable(factions.get(id)); }
