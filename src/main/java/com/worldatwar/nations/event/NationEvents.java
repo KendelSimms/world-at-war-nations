@@ -366,7 +366,7 @@ public final class NationEvents {
                 faction.centerX() + 49.0, level.getMaxBuildHeight(), faction.centerZ() + 49.0);
         java.util.List<Villager> guards = level.getEntitiesOfClass(Villager.class,
                         settlementArea,
-                        candidate -> candidate.isAlive()
+                        candidate -> candidate.isAlive() && !candidate.isBaby()
                                 && faction.id().equals(data.findCitizen(candidate.getUUID())
                                         .map(NationFaction::id).orElse(""))
                                 && faction.jobOf(candidate.getUUID()) == NationJob.GUARD)
@@ -477,7 +477,7 @@ public final class NationEvents {
         // stacking on one block. UUID ordering makes slot assignments stable between updates.
         AABB coordinationArea = threat.getBoundingBox().inflate(16.0);
         java.util.List<Villager> responders = level.getEntitiesOfClass(Villager.class, coordinationArea,
-                        candidate -> candidate.isAlive()
+                        candidate -> candidate.isAlive() && !candidate.isBaby()
                                 && faction.id().equals(data.findCitizen(candidate.getUUID())
                                         .map(NationFaction::id).orElse(""))
                                 && faction.jobOf(candidate.getUUID()) == NationJob.GUARD)
