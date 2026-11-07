@@ -190,6 +190,11 @@ public final class NationEvents {
                 for (int dx = -3; dx <= 3 && !placed; dx++) {
                     for (int dz = -3; dz <= 3; dz++) {
                         BlockPos pos = origin.offset(dx, 0, dz);
+                        // Keep the actual deployment position inside the home perimeter,
+                        // not just the recruiter who initiated the search.
+                        long spawnDx = (long) pos.getX() - faction.centerX();
+                        long spawnDz = (long) pos.getZ() - faction.centerZ();
+                        if (spawnDx * spawnDx + spawnDz * spawnDz > 24L * 24L) continue;
                         if (!level.hasChunkAt(pos) || !level.hasChunkAt(pos.below())
                                 || !level.getBlockState(pos.below()).isSolidRender(level, pos.below())
                                 || !level.getBlockState(pos).isAir()
