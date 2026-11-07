@@ -264,6 +264,10 @@ public final class NationSavedData extends SavedData {
                 })).orElse(null);
         if (nearest == null) return false;
         worksites.remove(nearest);
+        // Removing a service site also removes its completion marker, so a later
+        // site at the same coordinates can be constructed again safely.
+        completedInfrastructureSites.remove(infrastructureSiteKey(factionId, dimension,
+                new net.minecraft.core.BlockPos(nearest.x(), nearest.y(), nearest.z()), type));
         setDirty();
         return true;
     }
