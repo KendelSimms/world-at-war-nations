@@ -760,8 +760,12 @@ public final class NationEvents {
                 .map(ThreatAssessment::threat)
                 .orElse(null);
         AABB defenseArea = guard.getBoundingBox().inflate(24.0);
+        // Only command defenders owned by this faction. Unrelated vanilla, player,
+        // or other-faction golems must retain their own combat decisions.
+        String ownershipTag = "wan_garrison_" + faction.id();
         for (IronGolem golem : level.getEntitiesOfClass(IronGolem.class, defenseArea,
-                IronGolem::isAlive)) {
+                candidate -> candidate.isAlive() && candidate.getTags().contains(ownershipTag)
+                        && faction.hasGarrisonDefender(candidate.getUUID()))) {
             // Golems that are already fighting remain assigned unless their target
             // has become a diplomatic friend or an entity ally.
             LivingEntity existingTarget = golem.getTarget();
