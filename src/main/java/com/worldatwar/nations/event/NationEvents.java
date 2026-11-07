@@ -467,7 +467,8 @@ public final class NationEvents {
             LivingEntity existingTarget = golem.getTarget();
             // Do not preserve an obsolete diplomatic enemy after peace is established.
             if (existingTarget instanceof Monster existingMonster
-                    && diplomaticThreatPriority(existingMonster, faction, data) >= 3) {
+                    && (existingMonster.isAlliedTo(guard)
+                            || diplomaticThreatPriority(existingMonster, faction, data) >= 3)) {
                 golem.setTarget(null);
                 existingTarget = null;
             }
