@@ -68,6 +68,19 @@ public final class NationFaction {
     public int workshops() { return workshops; }
     public int barracks() { return barracks; }
     public int reserveTroops() { return reserveTroops; }
+    /** Funds one physical defensive iron golem; the caller must refund a failed spawn. */
+    public boolean fundGarrisonDefender() {
+        if (kind != FactionKind.VILLAGER || barracks <= 0 || population() < 3
+                || stability < 40 || iron < 12.0 || food < 35.0) return false;
+        iron -= 12.0;
+        food -= 8.0;
+        note("Equipped a physical garrison defender");
+        return true;
+    }
+    public void refundGarrisonDefender() {
+        iron = clamp(iron + 12.0, 0, MAX_STOCKPILE);
+        food = clamp(food + 8.0, 0, MAX_STOCKPILE);
+    }
     public long lastGrowthTick() { return lastGrowthTick; }
     public boolean canFundGrowth(long gameTick) {
         return population() >= 2 && population() < housingCapacity()
