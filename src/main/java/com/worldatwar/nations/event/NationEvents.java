@@ -82,7 +82,7 @@ public final class NationEvents {
                     NationFaction faction = data.findCitizen(villager.getUUID()).orElse(null);
                     if (faction == null) continue;
                     NationJob job = faction.jobOf(villager.getUUID());
-                    if (job != NationJob.GUARD && retreatCivilianFromThreat(level, villager, faction)) continue;
+                    if (job != NationJob.GUARD && retreatCivilianFromThreat(level, villager, faction, data)) continue;
                     guideWorkerToWorksite(level, villager, faction, data, job);
                     if (job == NationJob.GUARD) {
                         boolean responding = respondToSettlementThreat(level, villager, faction, data);
@@ -349,12 +349,15 @@ public final class NationEvents {
      * Non-guard citizens retreat toward their settlement center when hostile mobs get close.
      * This is a simple evacuation response; it does not guarantee the center is safe.
      */
-    private static boolean retreatCivilianFromThreat(ServerLevel level, Villager villager, NationFaction faction) {
+    private static boolean retreatCivilianFromThreat(ServerLevel level, Villager villager, NationFaction faction, NationSavedData data) {
         AABB dangerArea = villager.getBoundingBox().inflate(12.0);
         Monster threat = level.getEntitiesOfClass(Monster.class, dangerArea,
-                        candidate -> candidate.isAlive() && !candidate.isAlliedTo(villager))
+                        candidate -> candidate.isAlive() && !candidate.isAlliedTo(villager)
+                                && diplomaticThreatPriority(candidate, faction, data) < 3)
                 .stream()
-                .min(java.util.Comparator.comparingDouble(villager::distanceToSqr))
+                .min(java.util.Comparator
+                        .comparingInt((Monster candidate) -> diplomaticThreatPriority(candidate, faction, data))
+                        .thenComparingDouble(villager::distanceToSqr))
                 .orElse(null);
         if (threat == null) return false;
 
