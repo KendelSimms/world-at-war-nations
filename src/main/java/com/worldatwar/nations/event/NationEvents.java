@@ -563,7 +563,9 @@ public final class NationEvents {
         }
 
         AABB buildVolume = new AABB(base.offset(-1, 0, -1), base.offset(2, 3, 2));
-        if (!level.getEntities(villager, buildVolume).isEmpty()) return;
+        // The builder is excluded by getEntities(villager, ...); check its own collision box too.
+        if (villager.getBoundingBox().intersects(buildVolume)
+                || !level.getEntities(villager, buildVolume).isEmpty()) return;
 
         // 7 lower wall blocks + 7 upper wall blocks + 9 roof blocks = 23.
         if (!data.spendWoodForConstruction(faction.id(), 23.0)) return;
