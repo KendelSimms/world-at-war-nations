@@ -725,7 +725,9 @@ public final class NationEvents {
             }
         }
         AABB volume = new AABB(base.offset(-1, 0, -1), base.offset(2, 1, 2));
-        if (!level.getEntities(villager, volume).isEmpty()) return;
+        // The builder is excluded from getEntities(villager, ...), so check it explicitly.
+        if (villager.getBoundingBox().intersects(volume)
+                || !level.getEntities(villager, volume).isEmpty()) return;
 
         if (type == NationWorksite.Type.STORAGE) {
             if (!data.spendWoodForConstruction(faction.id(), 8.0)) return;
