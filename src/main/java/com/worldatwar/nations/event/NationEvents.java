@@ -181,6 +181,9 @@ public final class NationEvents {
                         defender.addTag(ownershipTag);
                         if (!data.fundGarrisonDefender(faction, server.overworld().getGameTime())) break;
                         if (!level.addFreshEntity(defender)) {
+                            // EntityJoinLevelEvent may have registered this UUID before
+                            // another listener vetoed the spawn. Undo both effects.
+                            data.removeGarrisonDefender(faction, defender.getUUID());
                             data.refundGarrisonDefender(faction, server.overworld().getGameTime());
                             continue;
                         }
