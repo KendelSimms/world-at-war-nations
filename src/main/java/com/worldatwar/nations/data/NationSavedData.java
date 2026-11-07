@@ -348,6 +348,13 @@ public final class NationSavedData extends SavedData {
         boolean changed = false;
         for (NationFaction faction : factions.values()) {
             int before = faction.population();
+            // Reconcile housing against completed physical build markers every simulation tick.
+            // Never count unfinished worksites as homes.
+            long shelters = worksites.stream().filter(site -> site.type() == NationWorksite.Type.BUILD
+                    && site.factionId().equals(faction.id())
+                    && completedBuildSites.contains(buildSiteKey(faction.id(), site.dimension(),
+                            new net.minecraft.core.BlockPos(site.x(), site.y(), site.z())))).count();
+            faction.updateCompletedShelters((int) Math.min(Integer.MAX_VALUE, shelters));
             faction.simulate();
             changed |= before > 0;
         }
