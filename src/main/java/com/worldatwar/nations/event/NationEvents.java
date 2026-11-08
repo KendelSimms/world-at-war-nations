@@ -663,6 +663,11 @@ public final class NationEvents {
             targetX = threat.getX();
             targetZ = threat.getZ();
         }
+        // The hostile's chunk being loaded does not guarantee that an offset
+        // formation position is loaded. Never initiate navigation into an
+        // unloaded destination chunk or implicitly load terrain for defense.
+        BlockPos formationDestination = BlockPos.containing(targetX, destination.getY(), targetZ);
+        if (!level.hasChunkAt(formationDestination)) return true;
         double dx = guard.getX() - targetX;
         double dz = guard.getZ() - targetZ;
         if (dx * dx + dz * dz > 4.0) {
