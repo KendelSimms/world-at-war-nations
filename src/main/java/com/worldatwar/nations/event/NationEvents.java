@@ -654,6 +654,15 @@ public final class NationEvents {
         double angle = (Math.PI * 2.0 * slot) / responderCount;
         double targetX = threat.getX() + Math.cos(angle) * 3.5;
         double targetZ = threat.getZ() + Math.sin(angle) * 3.5;
+        // The hostile may be inside the home defense perimeter while a
+        // responder's formation offset is outside it. Use the hostile's
+        // in-bounds position instead of sending the guard beyond the border.
+        double homeDx = targetX - (faction.centerX() + 0.5);
+        double homeDz = targetZ - (faction.centerZ() + 0.5);
+        if (homeDx * homeDx + homeDz * homeDz > 32.0 * 32.0) {
+            targetX = threat.getX();
+            targetZ = threat.getZ();
+        }
         double dx = guard.getX() - targetX;
         double dz = guard.getZ() - targetZ;
         if (dx * dx + dz * dz > 4.0) {
